@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { AuthorizationError } from '@escape-plan/engine';
 import { GroupsProvider, useGroups } from '@/store/groups';
+import { NotificationsProvider } from '@/store/notifications';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <GroupsProvider>{children}</GroupsProvider>
+  <NotificationsProvider>
+    <GroupsProvider>{children}</GroupsProvider>
+  </NotificationsProvider>
 );
 
 function setup() {

@@ -1,4 +1,5 @@
-import { BarChart3, Bot, CalendarDays, Compass, ListChecks, Moon, Sliders, Sun, Users } from 'lucide-react';
+import * as React from 'react';
+import { BarChart3, BellRing, Bot, CalendarDays, Compass, ListChecks, Moon, Sliders, Sun, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,8 @@ import { PlansView } from '@/components/PlansView';
 import { PreferencesPanel } from '@/components/PreferencesPanel';
 import { AiPlanner } from '@/components/AiPlanner';
 import { GroupView } from '@/components/GroupView';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { NotificationPreferences } from '@/components/NotificationPreferences';
 import { Onboarding } from '@/components/Onboarding';
 import { usePlanner } from '@/store/planner';
 import { useGroups } from '@/store/groups';
@@ -25,6 +28,7 @@ export default function App() {
   const { onboarded, aiEnabled, setAiEnabled, result, selectedPlanId } = usePlanner();
   const groups = useGroups();
   const { theme, toggle } = useTheme();
+  const [tab, setTab] = React.useState('dashboard');
 
   if (!onboarded) return <Onboarding />;
 
@@ -80,6 +84,7 @@ export default function App() {
                 aria-label="Toggle AI planner rephrasing"
               />
             </div>
+            <NotificationCenter onNavigate={(t) => setTab(t)} />
             <Button
               variant="outline"
               size="icon"
@@ -102,7 +107,7 @@ export default function App() {
           </p>
         </div>
 
-        <Tabs defaultValue="dashboard">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList
             className="flex w-full flex-wrap justify-start gap-1"
             aria-label="Planner sections"
@@ -121,6 +126,9 @@ export default function App() {
             </TabsTrigger>
             <TabsTrigger value="group">
               <Users className="h-4 w-4" /> Group
+            </TabsTrigger>
+            <TabsTrigger value="alerts">
+              <BellRing className="h-4 w-4" /> Alerts
             </TabsTrigger>
             <TabsTrigger value="preferences">
               <Sliders className="h-4 w-4" /> Preferences
@@ -141,6 +149,9 @@ export default function App() {
           </TabsContent>
           <TabsContent value="group">
             <GroupView />
+          </TabsContent>
+          <TabsContent value="alerts">
+            <NotificationPreferences />
           </TabsContent>
           <TabsContent value="preferences">
             <PreferencesPanel />

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useNotifications } from './notifications';
 import {
   AuthorizationError,
   DEMO_GROUPS,
@@ -101,12 +102,20 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
     privacy: clone(DEMO_PRIVACY),
     selectedGroupId: 'g-team',
   }));
+  const notifications = useNotifications();
 
   const value = React.useMemo<GroupsContextValue>(() => {
     const me = state.currentUserId;
     const groupById = (id: string) => DEMO_GROUPS.find((g) => g.id === id);
     const roleIn = (groupId: string): Role | null =>
       state.memberships.find((m) => m.groupId === groupId && m.userId === me)?.role ?? null;
+
+    const nameOf = (id: number) => DEMO_USERS.find((u) => u.id === id)?.name ?? `User ${id}`;
+    const membersOf = (groupId: string) => state.memberships.filter((m) => m.groupId === groupId);
+    const approversOf = (groupId: string, exclude: number) =>
+      membersOf(groupId)
+        .filter((m) => ['owner', 'admin', 'approver'].includes(m.role) && m.userId !== exclude)
+        .map((m) => m.userId);
 
     const requireRole = (groupId: string): { group: Group; role: Role } => {
       const group = groupById(groupId);
@@ -213,6 +222,13 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
           expiresAt: new Date(Date.now() + INVITE_TTL).toISOString(),
         };
         setState((s) => ({ ...s, invites: [...s.invites, invite] }));
+        // Notify the invited user (if they already have an account).
+        const invitee = DEMO_USERS.find((u) => u.email === normalised);
+        if (invitee) {
+          notifications.emit([
+            { recipientUserId: invitee.id, type: 'invite.created', subjectId: invite.id, ctx: { actorName: nameOf(me), groupName: group.name } },
+          ]);
+        }
       },
 
       acceptInvite: (token) => {
@@ -228,6 +244,18 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
           invites: s.invites.map((i) => (i.id === invite.id ? { ...i, status: 'accepted' } : i)),
           selectedGroupId: invite.groupId,
         }));
+        // Notify the inviter + group admins/owners.
+        const group = groupById(invite.groupId);
+        const recipients = new Set<number>([invite.invitedBy, ...approversOf(invite.groupId, me)]);
+        recipients.delete(me);
+        notifications.emit(
+          [...recipients].map((userId) => ({
+            recipientUserId: userId,
+            type: 'invite.accepted' as const,
+            subjectId: invite.id,
+            ctx: { actorName: nameOf(me), groupName: group?.name },
+          })),
+        );
       },
 
       declineInvite: (token) =>
@@ -280,6 +308,17 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
           ],
         };
         setState((s) => ({ ...s, requests: [...s.requests, record] }));
+        // Team requests notify approvers (never the requester).
+        if (state0 === 'pending') {
+          notifications.emit(
+            approversOf(groupId, me).map((userId) => ({
+              recipientUserId: userId,
+              type: 'leave.requested' as const,
+              subjectId: record.id,
+              ctx: { actorName: nameOf(me), groupName: group.name, start, end },
+            })),
+          );
+        }
       },
 
       decideLeave: (requestId, decision, reason) => {
@@ -307,6 +346,15 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
               : r,
           ),
         }));
+        // Notify the requester of the decision.
+        notifications.emit([
+          {
+            recipientUserId: req.userId,
+            type: decision === 'approved' ? 'leave.approved' : 'leave.rejected',
+            subjectId: req.id,
+            ctx: { groupName: group.name, start: req.start, end: req.end, reason },
+          },
+        ]);
       },
 
       setPrivacy: (groupId, setting) => {
@@ -333,6 +381,18 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
         requireRole(groupId); // must be a member of the target group
         const share: PlanShareRecord = { id: uid('sh'), planId, ownerUserId: me, groupId, level };
         setState((s) => ({ ...s, shares: [...s.shares, share] }));
+        // Notify group members (never the sharer).
+        notifications.emit(
+          membersOf(groupId)
+            .map((m) => m.userId)
+            .filter((userId) => userId !== me)
+            .map((userId) => ({
+              recipientUserId: userId,
+              type: 'plan.shared' as const,
+              subjectId: share.id,
+              ctx: { actorName: nameOf(me), planTitle: planId },
+            })),
+        );
       },
       revokeShare: (shareId) => {
         const share = state.shares.find((sh) => sh.id === shareId);
@@ -341,7 +401,7 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
         setState((s) => ({ ...s, shares: s.shares.filter((sh) => sh.id !== shareId) }));
       },
     };
-  }, [state]);
+  }, [state, notifications]);
 
   return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>;
 }
