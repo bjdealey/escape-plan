@@ -1,0 +1,28 @@
+{
+  "name": "escape-plan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Escape Plan — an intelligent annual-leave planner that generates optimised holiday plans.",
+  "type": "module",
+  "workspaces": [
+    "packages/engine",
+    "packages/server",
+    "apps/web"
+  ],
+  "scripts": {
+    "build:engine": "npm run build --workspace @escape-plan/engine",
+    "build:web": "npm run build --workspace @escape-plan/web",
+    "build:server": "npm run build --workspace @escape-plan/server",
+    "build": "npm run build:engine && npm run build:web && npm run build:server",
+    "typecheck": "npm run typecheck --workspace @escape-plan/engine && npm run typecheck --workspace @escape-plan/web && npm run typecheck --workspace @escape-plan/server",
+    "test": "npm run test --workspace @escape-plan/engine",
+    "dev": "npm run dev --workspace @escape-plan/web",
+    "dev:server": "npm run dev --workspace @escape-plan/server",
+    "db:migrate": "npm run migrate --workspace @escape-plan/server",
+    "db:seed": "npm run seed --workspace @escape-plan/server",
+    "postinstall": "npm run build:engine"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
