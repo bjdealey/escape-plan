@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "migrate": "tsx src/migrate.ts",
+    "rollback": "tsx src/migrate.ts rollback",
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {

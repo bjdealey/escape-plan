@@ -127,13 +127,31 @@ The web app does **not** require the backend. To run the full server path:
 # 1. Point at a Postgres instance
 export DATABASE_URL="postgres://postgres:postgres@localhost:5432/escape_plan"
 
-# 2. Create schema and seed
+# 2. Create schema and seed (db:rollback reverts the last migration)
 npm run db:migrate
 npm run db:seed
 
-# 3. Start the API
-npm run dev:server        # http://localhost:4000
+# 3. Start the API (persist groups to Postgres instead of the seeded memory store)
+GROUPS_BACKEND=postgres npm run dev:server   # http://localhost:4000
 ```
+
+### Multi-user & sharing
+
+Groups (households + teams), invites, an approval workflow, and shared plans are
+enforced **deny-by-default in the data/service layer** using a single shared
+permission matrix (`packages/engine/src/groups.ts`) — the same rules run in the
+server service (over Postgres or an in-memory store) and the web store. A user
+can never read or mutate another group's data without a checked membership.
+
+- The web app is fully explorable on a **cold start with no backend**: the
+  multi-user demo (a household + a team with varied roles and leave states) runs
+  against the seeded in-memory store. A dev-only "Viewing as" switcher (header)
+  acts as different seeded users — it maps to an `x-user-id` request header that
+  is **ignored under a real auth provider or in production**.
+- Existing single-user data migrates safely: migration `002` back-fills every
+  user into an owned **group-of-one**, and is reversible (`npm run db:rollback`).
+- Real IdP login (Clerk/Auth.js) remains a documented seam; the dev switcher
+  stands in for it.
 
 ### Environment variables
 
@@ -181,9 +199,9 @@ Reproduce the checks locally:
 ```bash
 npm install          # ✅ succeeds; builds the engine
 npm run typecheck    # ✅ zero TypeScript errors across all packages
-npm test             # ✅ 79 tests pass (engine 33 · server 31 + 1 db-gated · web 15)
+npm test             # ✅ 126 tests pass (engine 54 · server 47 +3 db-gated · web 25)
 npm run build        # ✅ engine + web + server build
-npm run test:e2e     # ✅ Playwright core journey (needs `npx playwright install chromium`)
+npm run test:e2e     # ✅ Playwright: solo + multi-user journeys (needs `npx playwright install chromium`)
 npm run dev          # ✅ dev server starts on :5173
 ```
 

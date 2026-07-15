@@ -21,6 +21,7 @@
     "dev": "npm run dev --workspace @escape-plan/web",
     "dev:server": "npm run dev --workspace @escape-plan/server",
     "db:migrate": "npm run migrate --workspace @escape-plan/server",
+    "db:rollback": "npm run rollback --workspace @escape-plan/server",
     "db:seed": "npm run seed --workspace @escape-plan/server",
     "postinstall": "npm run build:engine"
   },

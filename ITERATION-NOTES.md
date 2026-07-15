@@ -235,3 +235,48 @@ group-of-one per existing user. Rollback: `002_groups.down.sql` drops them.
 `maxSimultaneous?: number`. The optimiser never books a leave day that would
 exceed `maxSimultaneous` colleagues-off, and (as before) never books into a
 blackout. Team blackouts are passed via the existing `blackouts` field.
+
+## New env vars (Phase 3)
+- `GROUPS_BACKEND=postgres` — persist groups to Postgres (default: seeded
+  in-memory repo, so cold start works with no DB).
+- Dev-only `x-user-id` request header — "act as" a seeded user. Honoured ONLY
+  when no real `AUTH_PROVIDER` is set and `NODE_ENV !== 'production'`. Ignored
+  otherwise, so it can never impersonate in a deployed environment.
+
+## Commands (Phase 3)
+- `npm run db:migrate` / `npm run db:rollback` (reverts the last migration) /
+  `npm run db:seed`.
+
+## Coverage achieved (Phase 3)
+`npm test` runs 126 tests offline (+3 DB-gated skipped) plus 3 Playwright E2E:
+- **Engine:** 54 tests — 97.7% stmts / 91.2% branch. Permission matrix
+  (`groups.ts`) 94.6%; `optimiser.ts` 98.4%.
+- **Server:** 47 tests (+3 DB-gated skipped). Authorization service `access.ts`
+  77%, `routes/groups.ts` 96.5%, in-memory repo 83%. `pg.ts`, `migrate.ts`,
+  `seed.ts` are exercised only by the DB-gated tests (CI Postgres service).
+- **Web:** 25 tests — client group store 85.8%, `GroupView` 74.7%.
+- **E2E (Chromium):** solo journey (unchanged) + multi-user
+  (invite→accept→request→approve→co-edit) + deny-by-default UI.
+
+## What was verified vs. not (Phase 3, honesty)
+- **Verified offline (`npm test`):** deny-by-default and cross-group isolation
+  (non-member denied read+write), role checks (member can't invite in a team;
+  can't approve; nobody approves their own request), invite lifecycle
+  (accept/expiry/revoke, unguessable tokens), plan-sharing authorization,
+  household auto-approval, and the same enforcement in the web store. The engine
+  proves group constraints (never exceeds max-off-simultaneously, never books a
+  blackout) while the solo path stays byte-identical.
+- **Verified in-browser (cold start, no keys):** the Group surface renders, the
+  act-as switcher works, deny-by-default is reflected in the UI, dark mode is
+  clean. Console is clean on cold load; the only errors seen were transient
+  React Fast Refresh (HMR) context warnings that clear on reload and never occur
+  in the production build (the E2E in fresh Chromium is error-free).
+- **Verified in CI only (no local Docker/Postgres):** the reversible group
+  migration + back-fill to a group-of-one, its rollback, idempotent re-seed,
+  and Postgres-enforced authorization (`PgRepository`). These are written and
+  gated on `TEST_DATABASE_URL`; locally they are reported as **skipped**, not
+  passing. The GitHub Actions `db-integration` job runs them against a Postgres
+  service.
+- **Not implemented (kept honest):** real IdP login (Clerk/Auth.js) remains a
+  documented seam — the dev `x-user-id` switch stands in for it; and real
+  calendar/notification write-back stays behind explicit confirmation (Phase 2).
