@@ -21,4 +21,5 @@ export {
   summariseBreaks,
 } from './scoring.js';
 export { optimise } from './optimiser.js';
+export * from './groups.js';
 export * from './fixtures.js';

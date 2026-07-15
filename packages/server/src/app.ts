@@ -17,17 +17,34 @@ import {
   getWeatherProvider,
   providerStatus,
 } from './providers/index.js';
+import type { GroupRepository } from './access.js';
+import { MemoryRepository } from './repository/memory.js';
+import { PgRepository } from './repository/pg.js';
+import { mountGroupRoutes } from './routes/groups.js';
+
+/**
+ * Resolve the group data store. Defaults to the seeded in-memory repository so
+ * the multi-user features are explorable on a cold start with no Postgres. Set
+ * `GROUPS_BACKEND=postgres` to persist to the database instead.
+ */
+function resolveRepository(): GroupRepository {
+  return process.env.GROUPS_BACKEND === 'postgres'
+    ? new PgRepository(getPool())
+    : new MemoryRepository();
+}
 
 /**
  * Build the Express app. Extracted from `index.ts` so tests can import the app
  * without binding a port. Behaviour is unchanged from the original routes; the
- * integration endpoints now resolve their provider via the env-gated factory
- * (which still defaults to the seeded mock when no key/flag is present).
+ * integration endpoints resolve their provider via the env-gated factory, and
+ * group routes enforce deny-by-default authorization in the service layer.
  */
-export function createApp(): Express {
+export function createApp(opts: { repo?: GroupRepository } = {}): Express {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
+
+  const repo = opts.repo ?? resolveRepository();
 
   app.get('/api/health', async (_req, res) => {
     res.json({ ok: true, db: await isDbAvailable(), providers: providerStatus() });
@@ -149,6 +166,9 @@ export function createApp(): Express {
       return res.status(400).json({ error: (err as Error).message });
     }
   });
+
+  // -- Multi-user group routes (deny-by-default authorization) ---------------
+  mountGroupRoutes(app, repo);
 
   return app;
 }

@@ -1,6 +1,7 @@
 import type {
   BudgetConfig,
   ClimateMonth,
+  DateRangeSpec,
   Destination,
   EngineInput,
   Holiday,
@@ -8,6 +9,14 @@ import type {
   Preferences,
   Weights,
 } from './types.js';
+import type {
+  Group,
+  Invite,
+  LeaveRequestRecord,
+  Membership,
+  PlanShareRecord,
+  PrivacySetting,
+} from './groups.js';
 
 export const DEFAULT_WEIGHTS: Weights = {
   maximiseConsecutive: 4,
@@ -287,6 +296,167 @@ export const DEMO_COLLEAGUES: ColleagueLeave[] = [
 ];
 
 export const DEMO_TEAM = { maxSimultaneous: 2, teamSize: 8 };
+
+// ---------------------------------------------------------------------------
+// Multi-user seed data (Phase 3). Used by the web group store and server seed.
+// The engine's demoInput() intentionally does NOT reference these, so the solo
+// journey stays byte-identical.
+// ---------------------------------------------------------------------------
+
+export interface DemoUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export const DEMO_USERS: DemoUser[] = [
+  { id: 1, name: 'Demo User', email: 'demo@escape-plan.app' },
+  { id: 2, name: 'Sam Rivera', email: 'sam@escape-plan.app' },
+  { id: 3, name: 'Priya Shah', email: 'priya@escape-plan.app' },
+  { id: 4, name: 'Marcus Bell', email: 'marcus@escape-plan.app' },
+  { id: 5, name: 'Sofia Marin', email: 'sofia@escape-plan.app' },
+];
+
+export const DEMO_GROUPS: Group[] = [
+  { id: 'g-house', name: 'Rivera Household', type: 'household' },
+  { id: 'g-team', name: 'Product Team', type: 'team' },
+];
+
+/** Max colleagues off simultaneously, per group (teams only). */
+export const DEMO_GROUP_MAX: Record<string, number> = { 'g-team': 2 };
+
+export const DEMO_MEMBERSHIPS: Membership[] = [
+  { groupId: 'g-house', userId: 1, role: 'owner' },
+  { groupId: 'g-house', userId: 2, role: 'member' },
+  { groupId: 'g-team', userId: 3, role: 'owner' },
+  { groupId: 'g-team', userId: 5, role: 'approver' },
+  { groupId: 'g-team', userId: 1, role: 'member' },
+  { groupId: 'g-team', userId: 4, role: 'member' },
+];
+
+// Timestamps are anchored around the app's reference "today" of 2026-07-15.
+export const DEMO_INVITES: Invite[] = [
+  {
+    id: 'inv-1',
+    groupId: 'g-house',
+    email: 'alex@example.com',
+    role: 'member',
+    token: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    status: 'pending',
+    invitedBy: 1,
+    createdAt: '2026-07-10T09:00:00.000Z',
+    expiresAt: '2026-07-17T09:00:00.000Z',
+  },
+  {
+    id: 'inv-2',
+    groupId: 'g-team',
+    email: 'newhire@example.com',
+    role: 'member',
+    token: 'ffee0011223344556677889900aabbcc',
+    status: 'pending',
+    invitedBy: 3,
+    createdAt: '2026-07-01T09:00:00.000Z',
+    expiresAt: '2026-07-08T09:00:00.000Z', // already expired relative to 2026-07-15
+  },
+];
+
+export const DEMO_LEAVE_REQUESTS: LeaveRequestRecord[] = [
+  {
+    id: 'lr-1',
+    groupId: 'g-team',
+    userId: 1,
+    start: '2026-06-15',
+    end: '2026-06-19',
+    state: 'pending',
+    history: [
+      { state: 'requested', at: '2026-05-01T10:00:00.000Z', by: 1 },
+      { state: 'pending', at: '2026-05-01T10:00:01.000Z', by: 1 },
+    ],
+  },
+  {
+    id: 'lr-2',
+    groupId: 'g-team',
+    userId: 4,
+    start: '2026-04-06',
+    end: '2026-04-10',
+    state: 'approved',
+    decidedBy: 3,
+    decidedAt: '2026-03-02T12:00:00.000Z',
+    history: [
+      { state: 'requested', at: '2026-03-01T10:00:00.000Z', by: 4 },
+      { state: 'approved', at: '2026-03-02T12:00:00.000Z', by: 3 },
+    ],
+  },
+  {
+    id: 'lr-3',
+    groupId: 'g-team',
+    userId: 5,
+    start: '2026-05-25',
+    end: '2026-05-29',
+    state: 'rejected',
+    reason: 'Team already at capacity that week',
+    decidedBy: 3,
+    decidedAt: '2026-04-20T12:00:00.000Z',
+    history: [
+      { state: 'requested', at: '2026-04-19T10:00:00.000Z', by: 5 },
+      { state: 'rejected', at: '2026-04-20T12:00:00.000Z', by: 3, reason: 'Team already at capacity that week' },
+    ],
+  },
+  {
+    id: 'lr-4',
+    groupId: 'g-team',
+    userId: 1,
+    start: '2026-09-07',
+    end: '2026-09-11',
+    state: 'draft',
+    history: [{ state: 'draft', at: '2026-07-12T10:00:00.000Z', by: 1 }],
+  },
+  {
+    id: 'lr-5',
+    groupId: 'g-house',
+    userId: 2,
+    start: '2026-08-03',
+    end: '2026-08-07',
+    state: 'approved',
+    decidedBy: 2,
+    decidedAt: '2026-06-01T10:00:00.000Z',
+    history: [
+      { state: 'requested', at: '2026-06-01T09:59:00.000Z', by: 2 },
+      { state: 'approved', at: '2026-06-01T10:00:00.000Z', by: 2 },
+    ],
+  },
+];
+
+export const DEMO_PLAN_SHARES: PlanShareRecord[] = [
+  { id: 'sh-1', planId: 'plan-1', ownerUserId: 1, groupId: 'g-house', level: 'coedit' },
+  { id: 'sh-2', planId: 'plan-2', ownerUserId: 3, groupId: 'g-team', level: 'view' },
+];
+
+export interface DemoPrivacy {
+  userId: number;
+  groupId: string;
+  setting: PrivacySetting;
+}
+
+export const DEMO_PRIVACY: DemoPrivacy[] = [
+  { userId: 1, groupId: 'g-team', setting: 'busy' },
+  { userId: 4, groupId: 'g-team', setting: 'full' },
+  { userId: 5, groupId: 'g-team', setting: 'private' },
+];
+
+/**
+ * Derive engine group constraints for `userId` in `groupId`: the approved leave
+ * of *other* members becomes colleague absences, plus the group's max-off cap.
+ */
+export function groupConstraint(
+  groupId: string,
+  userId: number,
+): { colleagueLeave: DateRangeSpec[]; maxSimultaneous: number | undefined } {
+  const colleagueLeave = DEMO_LEAVE_REQUESTS.filter(
+    (r) => r.groupId === groupId && r.userId !== userId && r.state === 'approved',
+  ).map((r) => ({ start: r.start, end: r.end, label: 'Colleague leave' }));
+  return { colleagueLeave, maxSimultaneous: DEMO_GROUP_MAX[groupId] };
+}
 
 /** A ready-to-run demo input so the app is explorable on first load. */
 export function demoInput(overrides: Partial<EngineInput> = {}): EngineInput {

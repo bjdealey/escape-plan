@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -51,10 +51,11 @@ describe('seed / fixtures integrity', () => {
   });
 
   it('the migration references every table the seed writes to', () => {
-    const sql = readFileSync(
-      join(__dirname, '..', 'migrations', '001_init.sql'),
-      'utf8',
-    );
+    const migrationsDir = join(__dirname, '..', 'migrations');
+    const sql = readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql') && !f.endsWith('.down.sql'))
+      .map((f) => readFileSync(join(migrationsDir, f), 'utf8'))
+      .join('\n');
     const seed = readFileSync(join(__dirname, '..', 'src', 'seed.ts'), 'utf8');
     const insertedTables = [...seed.matchAll(/INSERT INTO (\w+)/g)].map((m) => m[1]);
     for (const table of new Set(insertedTables)) {

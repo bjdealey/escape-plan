@@ -138,6 +138,13 @@ export interface EngineInput {
   destinations: Destination[];
   /** How many distinct ranked plans to return. */
   planCount?: number;
+  /**
+   * Group constraint (optional). Absent ⇒ single-user behaviour is unchanged.
+   * Colleague absence ranges used to enforce "max colleagues off simultaneously".
+   */
+  colleagueLeave?: DateRangeSpec[];
+  /** Max colleagues (incl. the user) allowed off on any working day. */
+  maxSimultaneous?: number;
 }
 
 export interface WeatherSummary {
@@ -172,6 +179,8 @@ export interface Break {
   suggestion?: TripSuggestion;
   /** Estimated cost of this break (0 if no travel suggested / staycation). */
   estimatedCost: number;
+  /** Working days in this break that overlap a colleague's leave (group mode). */
+  colleagueOverlapDays?: number;
 }
 
 export interface ScoreBreakdown {

@@ -4,7 +4,14 @@ import {
   DEFAULT_PREFERENCES,
   DEMO_COLLEAGUES,
   DEMO_DESTINATIONS,
+  DEMO_GROUPS,
+  DEMO_INVITES,
+  DEMO_LEAVE_REQUESTS,
+  DEMO_MEMBERSHIPS,
+  DEMO_PLAN_SHARES,
+  DEMO_PRIVACY,
   DEMO_TEAM,
+  DEMO_USERS,
   UK_HOLIDAYS_2026,
   demoInput,
   optimise,
@@ -22,21 +29,29 @@ export async function runSeed(
   try {
     await client.query('BEGIN');
 
-    // Reset demo data (idempotent seed).
-    await client.query('DELETE FROM users WHERE email = $1', ['demo@escape-plan.app']);
+    // Reset demo data (idempotent seed). Deleting groups + users cascades to
+    // members/invites/requests/shares/privacy.
+    const demoEmails = DEMO_USERS.map((u) => u.email);
+    await client.query('DELETE FROM groups WHERE id = ANY($1)', [DEMO_GROUPS.map((g) => g.id)]);
+    await client.query('DELETE FROM users WHERE email = ANY($1)', [demoEmails]);
     await client.query('DELETE FROM holidays WHERE year = 2026');
     await client.query('DELETE FROM school_holidays WHERE year = 2026');
     await client.query('DELETE FROM climate');
     await client.query('DELETE FROM destinations');
 
-    const {
-      rows: [user],
-    } = await client.query<{ id: number }>(
-      `INSERT INTO users (name, email, country_code, weekend_days)
-       VALUES ($1,$2,$3,$4) RETURNING id`,
-      ['Demo User', 'demo@escape-plan.app', 'GB', '{0,6}'],
+    // Seed all demo users with explicit ids so group memberships resolve.
+    for (const u of DEMO_USERS) {
+      await client.query(
+        `INSERT INTO users (id, name, email, country_code, weekend_days)
+         VALUES ($1,$2,$3,'GB','{0,6}')`,
+        [u.id, u.name, u.email],
+      );
+    }
+    // Keep the SERIAL sequence ahead of the explicit ids.
+    await client.query(
+      `SELECT setval(pg_get_serial_sequence('users','id'), (SELECT max(id) FROM users))`,
     );
-    const userId = user.id;
+    const userId = DEMO_USERS[0].id; // primary demo user owns the leave config etc.
 
     await client.query(
       `INSERT INTO leave_config
@@ -153,6 +168,48 @@ export async function runSeed(
       await client.query(
         `INSERT INTO plans (user_id, strategy, score, payload) VALUES ($1,$2,$3,$4)`,
         [userId, plan.strategy, plan.score, JSON.stringify(plan)],
+      );
+    }
+
+    // -- Phase 3: multi-user groups, memberships, invites, requests, shares --
+    for (const g of DEMO_GROUPS) {
+      await client.query(`INSERT INTO groups (id, name, type) VALUES ($1,$2,$3)`, [
+        g.id,
+        g.name,
+        g.type,
+      ]);
+    }
+    for (const m of DEMO_MEMBERSHIPS) {
+      await client.query(
+        `INSERT INTO group_members (group_id, user_id, role) VALUES ($1,$2,$3)`,
+        [m.groupId, m.userId, m.role],
+      );
+    }
+    for (const inv of DEMO_INVITES) {
+      await client.query(
+        `INSERT INTO group_invites (id, group_id, email, role, token, status, invited_by, created_at, expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [inv.id, inv.groupId, inv.email, inv.role, inv.token, inv.status, inv.invitedBy, inv.createdAt, inv.expiresAt],
+      );
+    }
+    for (const r of DEMO_LEAVE_REQUESTS) {
+      await client.query(
+        `INSERT INTO leave_requests (id, group_id, user_id, start_date, end_date, state, reason, decided_by, decided_at, history)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [r.id, r.groupId, r.userId, r.start, r.end, r.state, r.reason ?? null, r.decidedBy ?? null, r.decidedAt ?? null, JSON.stringify(r.history)],
+      );
+    }
+    for (const s of DEMO_PLAN_SHARES) {
+      await client.query(
+        `INSERT INTO plan_shares (id, plan_id, owner_user_id, group_id, target_user_id, level)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [s.id, s.planId, s.ownerUserId, s.groupId ?? null, s.userId ?? null, s.level],
+      );
+    }
+    for (const p of DEMO_PRIVACY) {
+      await client.query(
+        `INSERT INTO user_group_privacy (group_id, user_id, setting) VALUES ($1,$2,$3)`,
+        [p.groupId, p.userId, p.setting],
       );
     }
 

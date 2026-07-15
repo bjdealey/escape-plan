@@ -3,7 +3,25 @@ import type { CandidateBreak, DayInfo } from './calendar.js';
 import { suggestDestination } from './destinations.js';
 import { ISODate, dateRange, monthOf, seasonOf } from './dateutil.js';
 import { explainPlan, scorePlan, summariseBreaks } from './scoring.js';
+import { colleaguesOffOn } from './groups.js';
 import type { Break, EngineInput, EngineResult, Plan, Weights } from './types.js';
+
+/**
+ * True when booking this candidate's leave dates would push the number of
+ * colleagues off on any working day above `maxSimultaneous`. Only active in
+ * group mode (both fields present); otherwise never constrains.
+ */
+function violatesCapacity(leaveDates: ISODate[], input: EngineInput): boolean {
+  if (input.maxSimultaneous === undefined || !input.colleagueLeave?.length) return false;
+  return leaveDates.some(
+    (d) => colleaguesOffOn(input.colleagueLeave!, d) + 1 > input.maxSimultaneous!,
+  );
+}
+
+function overlapDays(leaveDates: ISODate[], input: EngineInput): number | undefined {
+  if (!input.colleagueLeave?.length) return undefined;
+  return leaveDates.filter((d) => colleaguesOffOn(input.colleagueLeave!, d) > 0).length;
+}
 
 interface StrategyDef {
   key: string;
@@ -110,6 +128,7 @@ function candidateToBreak(c: CandidateBreak, input: EngineInput): Break {
     season: c.season,
     suggestion: dest?.suggestion,
     estimatedCost: dest?.cost ?? 0,
+    colleagueOverlapDays: overlapDays(c.leaveDates, input),
   };
 }
 
@@ -179,6 +198,7 @@ function selectForStrategy(
 
   const pool = candidates
     .filter((c) => (strategy.filter ? strategy.filter(c) : true))
+    .filter((c) => !violatesCapacity(c.leaveDates, input))
     .filter((c) => {
       if (!input.preferences.avoidSchoolHolidays) return true;
       return !dateRange(c.start, c.end).some((d) =>

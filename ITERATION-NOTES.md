@@ -162,3 +162,76 @@ resolution, untrusted-response rejection, and the calendar confirm-gate.
 - **Dashboard:** added sharpened **Leave efficiency** (with a normalised bar and
   plain-language verdict) and **Savings progress** (fund coverage now + by
   year-end) readouts.
+
+---
+
+# Phase 3 — Multi-user & sharing
+
+## Step 0 — current single-user data model (before this phase)
+
+- **Auth:** `packages/server/src/providers/auth.ts` exposes `getSession()` — a
+  static local dev session (`userId: 1`, `demo@escape-plan.app`). No real
+  Clerk/Auth.js is wired; the seam is documented as a stub.
+- **Server data model** (`migrations/001_init.sql`): everything is keyed by a
+  single `users.id`. Per-user tables: `leave_config`, `shutdowns`,
+  `mandatory_dates`, `blackouts`, `preferences`, `budget`, `personal_dates`,
+  `plans`. Team/colleague data was flat and user-owned: `colleague_leave`
+  (name + range + status string) and `team_settings` (max_simultaneous,
+  team_size). `holidays`, `school_holidays`, `destinations`, `climate` are
+  global reference data. **No groups, no membership, no authorization** — the
+  API served fixtures and never scoped a query by requester.
+- **Engine:** `optimise(EngineInput)` is pure/deterministic. It had **no group
+  constraints** — colleague leave and `maxSimultaneous` existed only as calendar
+  decoration (`DEMO_COLLEAGUES`, `DEMO_TEAM` in `fixtures.ts`); the optimiser
+  ignored them. Approval status was a mocked string / a mock provider signal.
+- **Web:** runs the engine client-side (`store/planner.tsx`); the solo journey
+  needs no backend. Colleague/team data comes from engine fixtures.
+
+## Authorization model (this phase)
+
+Single source of truth for the permission matrix lives in the pure engine
+package (`packages/engine/src/groups.ts`) and is enforced in **both** the
+server service layer (against Postgres rows) and the web store (against seeded
+in-memory rows). UI never decides access; it only reflects it.
+
+- **Group** has a `type`: `household` (peer roles) or `team` (approver/member).
+  A user may belong to many groups. Migration puts every existing user into a
+  **group-of-one** they `own`.
+- **Roles:** `owner`, `admin`, `approver`, `member`. Rank owner>admin>approver>member.
+- **Permission matrix** (action → min role / rule):
+
+  | Action | household | team |
+  |--------|-----------|------|
+  | view group + shared calendar | any member | any member |
+  | invite / revoke invite | owner, admin (peers: any member) | owner, admin |
+  | remove member / change role | owner, admin | owner, admin |
+  | delete group | owner | owner |
+  | request leave | any member (self) | any member (self) |
+  | approve / reject leave | any member except requester (auto-ack) | approver+ (owner/admin/approver), not self |
+  | share a plan / set co-edit | plan owner | plan owner |
+  | edit a shared plan | co-edit grantees | co-edit grantees |
+
+- **Deny by default:** `requireMembership(userId, groupId, minRole?)` throws
+  `AuthorizationError` (HTTP 403) unless an explicit membership row (and role
+  rank) is found. Cross-group reads/writes are impossible without a checked row.
+- **Invites:** token = 32 random bytes hex (`crypto.randomBytes`), single-use,
+  `expires_at` (default 7 days). Invite email is validated/normalised and
+  treated as untrusted input.
+- **Privacy:** per-user, per-group `share full | busy | private`. Others see
+  full details, busy-only blocks, or nothing accordingly.
+- **Approval workflow states:** `draft → requested → pending → approved | rejected`
+  with `reason` + timestamps + history. Team groups require an approver; household
+  groups auto-approve/acknowledge.
+- **Approval likelihood** is now derived by a pure function
+  `computeApprovalLikelihood({ overlap, blackout, remainingCapacity })` — no stub.
+
+## New tables (migration 002, reversible)
+`groups`, `group_members`, `group_invites`, `leave_requests`,
+`plan_shares`, `user_group_privacy`. Migration 002 also back-fills a
+group-of-one per existing user. Rollback: `002_groups.down.sql` drops them.
+
+## Engine group constraints (deterministic inputs)
+`EngineInput` gains optional `colleagueLeave: DateRangeSpec[]` and
+`maxSimultaneous?: number`. The optimiser never books a leave day that would
+exceed `maxSimultaneous` colleagues-off, and (as before) never books into a
+blackout. Team blackouts are passed via the existing `blackouts` field.
