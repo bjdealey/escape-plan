@@ -21,6 +21,12 @@ import type { GroupRepository } from './access.js';
 import { MemoryRepository } from './repository/memory.js';
 import { PgRepository } from './repository/pg.js';
 import { mountGroupRoutes } from './routes/groups.js';
+import type { NotificationStore } from './notifications/store.js';
+import { MemoryNotificationStore } from './notifications/memory.js';
+import { PgNotificationStore } from './notifications/pg.js';
+import { type Channels, channelStatus, resolveChannels } from './notifications/channels.js';
+import type { NotifierDeps } from './notifications/notifier.js';
+import { mountNotificationRoutes } from './routes/notifications.js';
 
 /**
  * Resolve the group data store. Defaults to the seeded in-memory repository so
@@ -33,21 +39,45 @@ function resolveRepository(): GroupRepository {
     : new MemoryRepository();
 }
 
+function resolveNotificationStore(): NotificationStore {
+  return process.env.GROUPS_BACKEND === 'postgres'
+    ? new PgNotificationStore(getPool())
+    : new MemoryNotificationStore();
+}
+
 /**
  * Build the Express app. Extracted from `index.ts` so tests can import the app
  * without binding a port. Behaviour is unchanged from the original routes; the
  * integration endpoints resolve their provider via the env-gated factory, and
  * group routes enforce deny-by-default authorization in the service layer.
  */
-export function createApp(opts: { repo?: GroupRepository } = {}): Express {
+export function createApp(
+  opts: { repo?: GroupRepository; notificationStore?: NotificationStore; channels?: Channels } = {},
+): Express {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
 
   const repo = opts.repo ?? resolveRepository();
+  const notificationStore = opts.notificationStore ?? resolveNotificationStore();
+  const channels = opts.channels ?? resolveChannels();
+  const notifier: NotifierDeps = {
+    groupRepo: repo,
+    store: notificationStore,
+    baseUrl: process.env.APP_BASE_URL ?? 'http://localhost:5173',
+    now: () => new Date(),
+  };
+  // Exposed so the delivery worker (index.ts) and tests can reach them.
+  app.locals.notificationStore = notificationStore;
+  app.locals.channels = channels;
 
   app.get('/api/health', async (_req, res) => {
-    res.json({ ok: true, db: await isDbAvailable(), providers: providerStatus() });
+    res.json({
+      ok: true,
+      db: await isDbAvailable(),
+      providers: providerStatus(),
+      channels: channelStatus(),
+    });
   });
 
   app.get('/api/bootstrap', async (_req, res) => {
@@ -168,7 +198,10 @@ export function createApp(opts: { repo?: GroupRepository } = {}): Express {
   });
 
   // -- Multi-user group routes (deny-by-default authorization) ---------------
-  mountGroupRoutes(app, repo);
+  mountGroupRoutes(app, repo, notifier);
+
+  // -- Notifications (in-app centre, preferences, push, public unsubscribe) --
+  mountNotificationRoutes(app, notificationStore);
 
   return app;
 }

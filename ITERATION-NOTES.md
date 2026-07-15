@@ -280,3 +280,76 @@ blackout. Team blackouts are passed via the existing `blackouts` field.
 - **Not implemented (kept honest):** real IdP login (Clerk/Auth.js) remains a
   documented seam — the dev `x-user-id` switch stands in for it; and real
   calendar/notification write-back stays behind explicit confirmation (Phase 2).
+
+---
+
+# Phase 4 — Notifications (additive, async, authorization-scoped)
+
+## Step 0 — events that should produce notifications (from what already exists)
+
+All triggers are existing actions in `packages/server/src/access.ts` (server) and
+the mirrored client store `apps/web/src/store/groups.tsx`:
+
+| Event type | Trigger (existing) | Recipients (via existing authz) | Essential |
+|------------|--------------------|---------------------------------|-----------|
+| `invite.created` | `createInvite` | the invited email (+ in-app if a known user) | yes |
+| `invite.accepted` | `acceptInvite` | the inviter + group admins/owner | yes |
+| `invite.declined` | `declineInvite` | the inviter | yes |
+| `invite.revoked` | `revokeInvite` | the invited email | yes |
+| `invite.expiring` | digest (pending invite near `expiresAt`) | the inviter | no |
+| `leave.requested` | `createLeaveRequest` (team) | approvers (owner/admin/approver, not requester) | yes |
+| `leave.approved` / `leave.rejected` | `decideLeaveRequest` | the requester (with reason) | yes |
+| `plan.shared` | `createPlanShare` | the target member, or members of the target group | yes |
+| `plan.coedit` | co-edit change seam (batched) | the plan owner | no |
+| `reminder.holiday` | digest (upcoming booked break) | the user | no |
+| `reminder.approval` | digest (requests awaiting your action) | approvers | no |
+| `reminder.savings` | digest (optional nudge) | the user | no |
+
+Recipient scoping **reuses** `requireMembership` / `membersOf` / role checks —
+no second access path. Content is redacted per recipient (a recipient only sees
+what they could already see in-app; e.g. a requester's leave reason goes only to
+the requester and approvers of that group).
+
+## Channels & providers
+
+- **In-app** (always on): a `notifications` feed row per recipient, written
+  synchronously at emit, idempotent by `dedup_key`. Read/unread + deep link.
+- **Email** (env-gated): real adapter targets **Resend** (`POST
+  https://api.resend.com/emails`, documented) — mock fallback logs + records.
+  `List-Unsubscribe` header + working no-login unsubscribe link.
+- **Web push** (env-gated): VAPID/`web-push` seam — mock fallback logs. Browser
+  opt-in via `Notification.requestPermission` (never on first load). The real
+  push send is documented but **not verified** (no VAPID keys / real
+  subscription) — recorded honestly.
+
+## Delivery & reliability (outbox pattern)
+
+- Emit writes the in-app row(s) and one `notification_outbox` row per async
+  channel (email/push) **after** the triggering action, wrapped so it can never
+  throw into the request path (non-blocking). Delivery runs **outside** the
+  request (interval worker `processOutbox`, or invoked directly in tests).
+- **Idempotent / dedup:** `dedup_key = type:subjectId:recipientId`, unique — a
+  repeated trigger or retry never creates a second notification or send.
+- **Retry/backoff:** failed sends increment `attempts` with exponential backoff
+  (`next_attempt_at`); after `MAX_ATTEMPTS` (5) the row is `dead` (dead-letter),
+  never lost.
+- **Batching:** reminders and `plan.coedit` coalesce into a single digest
+  (`batchDigest`) rather than one message per event.
+
+## Preferences & compliance
+
+- Per-user, per-channel, per-type preferences with sensible defaults
+  (in-app on; email on for transactional, off for digests/nudges; push off).
+- Quiet hours defer email/push (in-app still delivered). Global mute.
+- Unsubscribe tokens are unguessable, single-purpose, expiring; the
+  `/api/unsubscribe?token=` route works without login and is honoured
+  immediately. `List-Unsubscribe` header set for the email provider.
+- Bounce/complaint handling: documented as a provider webhook seam (Resend);
+  not wired live without keys — recorded as unimplemented.
+
+## Security
+- Recipient scoping + redaction reuse the group/role checks; a test asserts a
+  non-member / wrong-role user never receives a notification about a group's
+  leave or plan.
+- User text (names, plan titles) is HTML-escaped in email bodies and stripped of
+  CR/LF before use in subjects/headers → no header/markup injection.

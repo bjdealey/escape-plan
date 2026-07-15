@@ -20,6 +20,29 @@ import {
   revokeInvite,
   revokePlanShare,
 } from '../access.js';
+import {
+  type NotifierDeps,
+  onInviteAccepted,
+  onInviteCreated,
+  onInviteDeclined,
+  onInviteRevoked,
+  onLeaveDecided,
+  onLeaveRequested,
+  onPlanShared,
+} from '../notifications/notifier.js';
+
+/**
+ * Fire a notifier emit without ever affecting the triggering action: the emit
+ * only persists intent (in-app row + outbox rows); delivery runs in the worker.
+ * Any error is swallowed so the action's response is unaffected.
+ */
+async function emitSafe(fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    console.error('notification emit failed (non-blocking):', (err as Error).message);
+  }
+}
 
 function mapError(err: unknown, res: Response): void {
   if (err instanceof AuthorizationError) {
@@ -41,7 +64,7 @@ function sessionOf(req: Request): Session {
  * to the authorization service, which denies by default. The UI never bypasses
  * these checks.
  */
-export function mountGroupRoutes(app: Express, repo: GroupRepository): void {
+export function mountGroupRoutes(app: Express, repo: GroupRepository, notifier?: NotifierDeps): void {
   const handle =
     (fn: (session: Session, req: Request) => Promise<unknown>) =>
     async (req: Request, res: Response) => {
@@ -63,14 +86,42 @@ export function mountGroupRoutes(app: Express, repo: GroupRepository): void {
   );
   app.post(
     '/api/groups/:id/invites',
-    handle((s, req) => createInvite(repo, s, req.params.id, req.body?.email, req.body?.role)),
+    handle(async (s, req) => {
+      const invite = await createInvite(repo, s, req.params.id, req.body?.email, req.body?.role);
+      if (notifier) await emitSafe(() => onInviteCreated(notifier, invite));
+      return invite;
+    }),
   );
   app.post(
     '/api/groups/:id/invites/:inviteId/revoke',
-    handle((s, req) => revokeInvite(repo, s, req.params.id, req.params.inviteId)),
+    handle(async (s, req) => {
+      const invites = await repo.invitesForGroup(req.params.id);
+      const invite = invites.find((i) => i.id === req.params.inviteId);
+      await revokeInvite(repo, s, req.params.id, req.params.inviteId);
+      if (notifier && invite) await emitSafe(() => onInviteRevoked(notifier, invite));
+      return { ok: true };
+    }),
   );
-  app.post('/api/invites/accept', handle((s, req) => acceptInvite(repo, s, req.body?.token)));
-  app.post('/api/invites/decline', handle((s, req) => declineInvite(repo, s, req.body?.token)));
+  app.post(
+    '/api/invites/accept',
+    handle(async (s, req) => {
+      const token = req.body?.token;
+      const invite = typeof token === 'string' ? await repo.inviteByToken(token) : undefined;
+      const out = await acceptInvite(repo, s, token);
+      if (notifier && invite) await emitSafe(() => onInviteAccepted(notifier, invite, s.userId));
+      return out;
+    }),
+  );
+  app.post(
+    '/api/invites/decline',
+    handle(async (s, req) => {
+      const token = req.body?.token;
+      const invite = typeof token === 'string' ? await repo.inviteByToken(token) : undefined;
+      await declineInvite(repo, s, token);
+      if (notifier && invite) await emitSafe(() => onInviteDeclined(notifier, invite));
+      return { ok: true };
+    }),
+  );
   app.post('/api/groups/:id/leave', handle((s, req) => leaveGroup(repo, s, req.params.id)));
 
   // Leave requests + approval
@@ -80,15 +131,32 @@ export function mountGroupRoutes(app: Express, repo: GroupRepository): void {
   );
   app.post(
     '/api/groups/:id/leave-requests',
-    handle((s, req) => createLeaveRequest(repo, s, req.params.id, req.body ?? {})),
+    handle(async (s, req) => {
+      const out = await createLeaveRequest(repo, s, req.params.id, req.body ?? {});
+      if (notifier && out.request.state === 'pending') {
+        await emitSafe(() => onLeaveRequested(notifier, out.request));
+      }
+      return out;
+    }),
   );
   app.post(
     '/api/leave-requests/:id/decide',
-    handle((s, req) => decideLeaveRequest(repo, s, req.params.id, req.body?.decision, req.body?.reason)),
+    handle(async (s, req) => {
+      const updated = await decideLeaveRequest(repo, s, req.params.id, req.body?.decision, req.body?.reason);
+      if (notifier) await emitSafe(() => onLeaveDecided(notifier, updated));
+      return updated;
+    }),
   );
 
   // Plan sharing
-  app.post('/api/plan-shares', handle((s, req) => createPlanShare(repo, s, req.body ?? {})));
+  app.post(
+    '/api/plan-shares',
+    handle(async (s, req) => {
+      const share = await createPlanShare(repo, s, req.body ?? {});
+      if (notifier) await emitSafe(() => onPlanShared(notifier, share));
+      return share;
+    }),
+  );
   app.delete('/api/plan-shares/:id', handle((s, req) => revokePlanShare(repo, s, req.params.id)));
   app.get('/api/plans/:planId/access', handle((s, req) => planAccess(repo, s, req.params.planId)));
 }

@@ -4,6 +4,7 @@ import { AuthorizationError } from '@escape-plan/engine';
 import { applyMigration, rollbackMigration, runMigrations } from '../src/migrate.js';
 import { runSeed } from '../src/seed.js';
 import { PgRepository } from '../src/repository/pg.js';
+import { PgNotificationStore } from '../src/notifications/pg.js';
 import { getGroupView, requireMembership } from '../src/access.js';
 
 /**
@@ -88,5 +89,33 @@ describe.skipIf(!url)('migrations + seed against a real Postgres', () => {
     await expect(
       requireMembership(repo, 2, 'g-team'), // Sam is not in g-team
     ).rejects.toBeInstanceOf(AuthorizationError);
+  });
+
+  it('applies the notifications migration, seeds notifications, and the pg store is idempotent', async () => {
+    await runMigrations(pool!, () => {});
+    await runSeed(pool!, () => {});
+    const store = new PgNotificationStore(pool!);
+
+    // Seeded in-app notifications exist.
+    const feed = await store.listInApp(1);
+    expect(feed.length).toBeGreaterThan(0);
+
+    // Enqueue + dedup: a repeated (dedupKey, channel) is a no-op.
+    const item = {
+      id: 'obx-db-1', userId: 1, email: 'demo@escape-plan.app', channel: 'email' as const,
+      type: 'leave.approved' as const, subject: 's', body: 'b', link: 'group',
+      status: 'pending' as const, attempts: 0, nextAttemptAt: new Date().toISOString(),
+      dedupKey: 'db-dedup-1', createdAt: new Date().toISOString(),
+    };
+    expect(await store.enqueueOutbox(item)).toBe(true);
+    expect(await store.enqueueOutbox({ ...item, id: 'obx-db-2' })).toBe(false);
+
+    // 003 rolls back cleanly, leaving users intact.
+    await rollbackMigration(pool!, '003_notifications.sql', () => {});
+    const gone = await pool!.query("SELECT to_regclass('public.notifications') AS t");
+    expect(gone.rows[0].t).toBeNull();
+    const users = await pool!.query("SELECT count(*)::int AS n FROM users");
+    expect(users.rows[0].n).toBeGreaterThan(0);
+    await applyMigration(pool!, '003_notifications.sql', () => {});
   });
 });

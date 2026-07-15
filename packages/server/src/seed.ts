@@ -15,6 +15,7 @@ import {
   UK_HOLIDAYS_2026,
   demoInput,
   optimise,
+  renderNotification,
 } from '@escape-plan/engine';
 import { pathToFileURL } from 'node:url';
 import type pg from 'pg';
@@ -212,6 +213,28 @@ export async function runSeed(
         [p.groupId, p.userId, p.setting],
       );
     }
+
+    // -- Phase 4: sample in-app notifications + a preference ------------------
+    const nowIso = new Date().toISOString();
+    const sampleNotifs = [
+      { id: 'ntf-seed-1', userId: 1, type: 'leave.approved', ...renderNotification('leave.approved', { groupName: 'Product Team', start: '2026-06-15', end: '2026-06-19' }) },
+      { id: 'ntf-seed-2', userId: 3, type: 'leave.requested', ...renderNotification('leave.requested', { actorName: 'Demo User', groupName: 'Product Team', start: '2026-06-15', end: '2026-06-19' }) },
+      { id: 'ntf-seed-3', userId: 2, type: 'plan.shared', ...renderNotification('plan.shared', { actorName: 'Demo User', planTitle: 'plan-1' }) },
+    ];
+    for (const n of sampleNotifs) {
+      await client.query(
+        `INSERT INTO notifications (id, user_id, type, title, body, link, created_at, dedup_key)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (dedup_key) DO NOTHING`,
+        [n.id, n.userId, n.type, n.title, n.body, n.link, nowIso, `seed:${n.id}`],
+      );
+    }
+    // Demo user has quiet hours 22:00–07:00 and digest nudges muted by default.
+    await client.query(
+      `INSERT INTO notification_preferences (user_id, muted, quiet_start, quiet_end, overrides)
+       VALUES ($1,false,$2,$3,$4)
+       ON CONFLICT (user_id) DO UPDATE SET quiet_start = EXCLUDED.quiet_start, quiet_end = EXCLUDED.quiet_end, overrides = EXCLUDED.overrides`,
+      [1, 22 * 60, 7 * 60, JSON.stringify({ 'reminder.savings': { inapp: false } })],
+    );
 
     await client.query('COMMIT');
     log(
