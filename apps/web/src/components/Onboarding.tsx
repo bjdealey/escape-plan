@@ -259,11 +259,15 @@ export function Onboarding() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactElement }) {
+  // Associate the label with its control for screen readers and keyboard users.
+  const id = React.useId();
   return (
     <div>
-      <Label className="mb-2 block">{label}</Label>
-      {children}
+      <Label htmlFor={id} className="mb-2 block">
+        {label}
+      </Label>
+      {React.cloneElement(children, { id } as Record<string, unknown>)}
     </div>
   );
 }
