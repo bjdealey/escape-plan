@@ -153,6 +153,27 @@ can never read or mutate another group's data without a checked membership.
 - Real IdP login (Clerk/Auth.js) remains a documented seam; the dev switcher
   stands in for it.
 
+### Notifications
+
+Multi-user events (invites, approval requests/decisions, shared plans, reminders)
+produce notifications across three channels — **in-app** (always on), **email**,
+and **web push** — and are **additive, asynchronous, and authorization-scoped**:
+
+- Sending never blocks or rolls back the triggering action. An **outbox** row is
+  persisted with the action; delivery runs in a background worker with
+  exponential-backoff retries and a **dead-letter** state after 5 attempts.
+  Everything is **idempotent** (dedup by type+subject+recipient) so retries and
+  repeated triggers never duplicate.
+- Recipients reuse the group/role checks — a non-member or wrong-role user is
+  never a recipient, and content is redacted to what they can already see.
+- **Preferences** (Alerts tab): per-event × per-channel toggles, quiet hours,
+  global mute. Email carries a `List-Unsubscribe` header and a **no-login
+  unsubscribe** link that is honoured immediately. Web push is **opt-in** and
+  never prompts on first load.
+- Cold start with no keys: email/push degrade to a logged mock; in-app still
+  works. User text is HTML-escaped and CR/LF-stripped (no header/markup
+  injection).
+
 ### Environment variables
 
 | Var | Default | Used by |
@@ -174,6 +195,8 @@ can never read or mutate another group's data without a checked membership.
 | `AMADEUS_CLIENT_ID` / `_SECRET` | Amadeus flight offers | contract only |
 | `GOOGLE_ACCESS_TOKEN` | Google Calendar (write needs `confirm`) | contract only |
 | `AUTH_PROVIDER` | Auth.js/Clerk seam (dev session default) | n/a |
+| `RESEND_API_KEY` / `NOTIFY_EMAIL_FROM` | Resend transactional email | contract only |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push (VAPID) | seam only |
 
 The API serves the **seeded fixtures when no database is reachable** and every
 integration **defaults to its seeded mock**, so `npm run dev:server` works with
@@ -199,7 +222,7 @@ Reproduce the checks locally:
 ```bash
 npm install          # ✅ succeeds; builds the engine
 npm run typecheck    # ✅ zero TypeScript errors across all packages
-npm test             # ✅ 126 tests pass (engine 54 · server 47 +3 db-gated · web 25)
+npm test             # ✅ 154 tests pass (engine 66 · server 56 +4 db-gated · web 32)
 npm run build        # ✅ engine + web + server build
 npm run test:e2e     # ✅ Playwright: solo + multi-user journeys (needs `npx playwright install chromium`)
 npm run dev          # ✅ dev server starts on :5173

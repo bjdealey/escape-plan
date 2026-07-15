@@ -353,3 +353,39 @@ the requester and approvers of that group).
   leave or plan.
 - User text (names, plan titles) is HTML-escaped in email bodies and stripped of
   CR/LF before use in subjects/headers → no header/markup injection.
+
+## New env vars (Phase 4, all optional; absent ⇒ mock, cold start works)
+- `RESEND_API_KEY`, `NOTIFY_EMAIL_FROM` — real transactional email via Resend.
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — real web push (documented seam; not
+  wired live).
+- `APP_BASE_URL` (deep-link base in emails), `API_BASE_URL` (unsubscribe links).
+
+## Coverage achieved (Phase 4)
+`npm test` runs 154 tests offline (+4 DB-gated skipped) plus 5 Playwright E2E:
+- **Engine:** 66 tests — notifications core `notifications.ts` 92.6% stmts
+  (catalogue defaults, escaping/header-injection, redaction, preferences +
+  quiet hours, dedup, digest batching, backoff).
+- **Server:** 56 tests (+4 DB-gated). notifier 73%, delivery 75%, routes 82%,
+  channels 61% (the live Resend path is not exercised offline). DB-gated tests
+  cover migration 003, the Pg notification store, and rollback (CI only).
+- **Web:** 32 tests — client notifications store (emit/dedup/opt-out/unread),
+  notification centre deep-link, preferences toggles.
+- **E2E (Chromium):** invite → recipient notified → deep-link opens the group
+  screen; leave requested → approver notified → approves → requester notified.
+  Solo + prior multi-user journeys still pass.
+
+## Verified vs. not (Phase 4, honesty)
+- **Verified offline / in-browser:** event→notification mapping and redaction;
+  authorization-safe recipient scoping (approver notified, plain member and
+  non-member NOT — asserted via API and engine); non-blocking (action commits
+  though the email channel throws); retry with backoff → dead-letter after 5,
+  never lost, never duplicated (dedup); preferences (disabling an email keeps
+  in-app), no-login unsubscribe honoured immediately; HTML-escaped body +
+  CR/LF-stripped subject (no header injection). Notification centre + prefs
+  render with no console errors on cold load; AA tokens unchanged.
+- **Not verified (no keys/account):** live Resend email send and live web push
+  (VAPID) — implemented/seamed against documented contracts, default to mocks.
+- **Verified in CI only (no local Docker/Postgres):** migration 003 + rollback
+  and the Postgres notification store — reported as skipped locally, not passing.
+- **Not implemented (kept honest):** provider bounce/complaint webhooks are a
+  documented Resend seam, not wired without keys.
