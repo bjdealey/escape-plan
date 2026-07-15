@@ -9,10 +9,15 @@ import {
   demoInput,
   optimise,
 } from '@escape-plan/engine';
+import { pathToFileURL } from 'node:url';
+import type pg from 'pg';
 import { closePool, getPool } from './db.js';
 
-async function seed(): Promise<void> {
-  const pool = getPool();
+/** Seed the demo user, holidays, destinations, colleagues, and sample plans. */
+export async function runSeed(
+  pool: pg.Pool,
+  log = console.log,
+): Promise<{ userId: number; plans: number }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -152,10 +157,11 @@ async function seed(): Promise<void> {
     }
 
     await client.query('COMMIT');
-    console.log(
+    log(
       `✓ seeded demo user (#${userId}) with ${UK_HOLIDAYS_2026.length} holidays, ` +
         `${DEMO_DESTINATIONS.length} destinations and ${result.plans.length} sample plans`,
     );
+    return { userId, plans: result.plans.length };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -164,9 +170,12 @@ async function seed(): Promise<void> {
   }
 }
 
-seed()
-  .catch((err) => {
-    console.error('Seed failed:', err.message);
-    process.exitCode = 1;
-  })
-  .finally(() => closePool());
+// CLI entry point.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runSeed(getPool())
+    .catch((err) => {
+      console.error('Seed failed:', err.message);
+      process.exitCode = 1;
+    })
+    .finally(() => closePool());
+}

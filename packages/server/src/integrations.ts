@@ -6,7 +6,7 @@
  * mock data and make NO network calls, so the app is fully explorable offline.
  * Swap the mock for a real client where marked.
  */
-import { DEMO_DESTINATIONS } from '@escape-plan/engine';
+import { DEMO_DESTINATIONS, UK_HOLIDAYS_2026 } from '@escape-plan/engine';
 
 export interface WeatherProvider {
   /** Average conditions for a destination in a given month. */
@@ -32,8 +32,29 @@ export interface HrProvider {
   approvalLikelihood(userId: number, start: string, end: string): Promise<number>;
 }
 
+export interface CalendarEvent {
+  title: string;
+  start: string; // ISO date or datetime
+  end: string;
+}
+
 export interface CalendarProvider {
   busyRanges(userId: number): Promise<{ start: string; end: string; label: string }[]>;
+  /**
+   * Optional write-back. Callers MUST obtain explicit user confirmation before
+   * invoking this; the API layer enforces a `confirm: true` gate.
+   */
+  createEvent?(userId: number, event: CalendarEvent): Promise<{ id: string; status: string }>;
+}
+
+export interface HolidayRecord {
+  date: string; // YYYY-MM-DD
+  name: string;
+}
+
+export interface HolidayProvider {
+  /** Public holidays for a country + year. */
+  holidays(year: number, countryCode: string): Promise<HolidayRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,5 +109,20 @@ export const mockCalendar: CalendarProvider = {
   // TODO: real integration — Google / Microsoft 365 / Apple calendars.
   async busyRanges() {
     return [{ start: '2026-03-16', end: '2026-03-20', label: 'Project launch (busy)' }];
+  },
+  async createEvent(_userId, event) {
+    // Deterministic fake id; never leaves the process.
+    const id = `mock-${event.start}-${[...event.title].reduce((a, c) => a + c.charCodeAt(0), 0)}`;
+    return { id, status: 'confirmed' };
+  },
+};
+
+export const mockHoliday: HolidayProvider = {
+  // TODO: real integration — Nager.Date / government open-data feeds.
+  async holidays(year) {
+    return UK_HOLIDAYS_2026.filter((h) => h.date.startsWith(String(year))).map((h) => ({
+      date: h.date,
+      name: h.name,
+    }));
   },
 };

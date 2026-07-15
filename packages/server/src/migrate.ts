@@ -1,13 +1,14 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import type pg from 'pg';
 import { closePool, getPool } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '..', 'migrations');
 
-async function migrate(): Promise<void> {
-  const pool = getPool();
+/** Apply all pending SQL migrations against the given pool. Idempotent. */
+export async function runMigrations(pool: pg.Pool, log = console.log): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
@@ -24,11 +25,11 @@ async function migrate(): Promise<void> {
 
   for (const file of files) {
     if (applied.has(file)) {
-      console.log(`• skip   ${file}`);
+      log(`• skip   ${file}`);
       continue;
     }
     const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
-    console.log(`▶ apply  ${file}`);
+    log(`▶ apply  ${file}`);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -42,12 +43,15 @@ async function migrate(): Promise<void> {
       client.release();
     }
   }
-  console.log('✓ migrations complete');
+  log('✓ migrations complete');
 }
 
-migrate()
-  .catch((err) => {
-    console.error('Migration failed:', err.message);
-    process.exitCode = 1;
-  })
-  .finally(() => closePool());
+// CLI entry point.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runMigrations(getPool())
+    .catch((err) => {
+      console.error('Migration failed:', err.message);
+      process.exitCode = 1;
+    })
+    .finally(() => closePool());
+}
