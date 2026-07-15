@@ -1,19 +1,29 @@
-import { BarChart3, Bot, CalendarDays, Compass, ListChecks, Moon, Sliders, Sun } from 'lucide-react';
+import { BarChart3, Bot, CalendarDays, Compass, ListChecks, Moon, Sliders, Sun, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dashboard } from '@/components/Dashboard';
 import { CalendarView } from '@/components/CalendarView';
 import { PlansView } from '@/components/PlansView';
 import { PreferencesPanel } from '@/components/PreferencesPanel';
 import { AiPlanner } from '@/components/AiPlanner';
+import { GroupView } from '@/components/GroupView';
 import { Onboarding } from '@/components/Onboarding';
 import { usePlanner } from '@/store/planner';
+import { useGroups } from '@/store/groups';
 import { useTheme } from '@/store/theme';
 
 export default function App() {
   const { onboarded, aiEnabled, setAiEnabled, result, selectedPlanId } = usePlanner();
+  const groups = useGroups();
   const { theme, toggle } = useTheme();
 
   if (!onboarded) return <Onboarding />;
@@ -41,6 +51,23 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <div className="hidden items-center gap-2 sm:flex">
+              <Label htmlFor="act-as" className="text-xs text-muted-foreground">
+                Viewing as
+              </Label>
+              <Select value={String(groups.currentUser.id)} onValueChange={(v) => groups.actAs(Number(v))}>
+                <SelectTrigger id="act-as" className="h-9 w-40" aria-label="Act as user (dev)">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.users.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="hidden items-center gap-2 sm:flex">
               <Bot className="h-4 w-4 text-muted-foreground" aria-hidden />
               <Label htmlFor="ai-toggle" className="text-xs text-muted-foreground">
@@ -92,6 +119,9 @@ export default function App() {
             <TabsTrigger value="assistant">
               <Bot className="h-4 w-4" /> Assistant
             </TabsTrigger>
+            <TabsTrigger value="group">
+              <Users className="h-4 w-4" /> Group
+            </TabsTrigger>
             <TabsTrigger value="preferences">
               <Sliders className="h-4 w-4" /> Preferences
             </TabsTrigger>
@@ -108,6 +138,9 @@ export default function App() {
           </TabsContent>
           <TabsContent value="assistant">
             <AiPlanner />
+          </TabsContent>
+          <TabsContent value="group">
+            <GroupView />
           </TabsContent>
           <TabsContent value="preferences">
             <PreferencesPanel />
