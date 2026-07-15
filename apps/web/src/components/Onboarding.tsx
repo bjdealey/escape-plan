@@ -253,6 +253,18 @@ export function Onboarding() {
               </Button>
             )}
           </div>
+
+          {step < STEPS.length - 1 && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setOnboarded(true)}
+                className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                Skip setup — explore the seeded demo
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

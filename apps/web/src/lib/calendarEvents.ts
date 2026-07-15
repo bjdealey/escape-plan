@@ -7,20 +7,30 @@ import {
 } from '@escape-plan/engine';
 import { formatCurrency } from '@/lib/utils';
 
+export type CalendarLayer =
+  | 'leave'
+  | 'holiday'
+  | 'personal'
+  | 'colleague'
+  | 'blackout'
+  | 'shutdown'
+  | 'school';
+
 export interface LegendItem {
   label: string;
   color: string;
   kind: 'block' | 'range';
+  layer: CalendarLayer;
 }
 
 export const CALENDAR_LEGEND: LegendItem[] = [
-  { label: 'Suggested / booked leave', color: 'hsl(var(--primary))', kind: 'block' },
-  { label: 'Bank holiday', color: 'hsl(var(--accent))', kind: 'block' },
-  { label: 'Personal date', color: 'hsl(var(--warning))', kind: 'block' },
-  { label: 'Colleague leave', color: 'hsl(var(--muted-foreground))', kind: 'block' },
-  { label: 'Company blackout', color: 'hsl(var(--destructive) / 0.35)', kind: 'range' },
-  { label: 'Shutdown', color: 'hsl(var(--muted-foreground) / 0.3)', kind: 'range' },
-  { label: 'School holidays', color: 'hsl(var(--warning) / 0.28)', kind: 'range' },
+  { label: 'Suggested / booked leave', color: 'hsl(var(--primary))', kind: 'block', layer: 'leave' },
+  { label: 'Bank holiday', color: 'hsl(var(--accent))', kind: 'block', layer: 'holiday' },
+  { label: 'Personal date', color: 'hsl(var(--warning))', kind: 'block', layer: 'personal' },
+  { label: 'Colleague leave', color: 'hsl(var(--muted-foreground))', kind: 'block', layer: 'colleague' },
+  { label: 'Company blackout', color: 'hsl(var(--destructive) / 0.35)', kind: 'range', layer: 'blackout' },
+  { label: 'Shutdown', color: 'hsl(var(--muted-foreground) / 0.3)', kind: 'range', layer: 'shutdown' },
+  { label: 'School holidays', color: 'hsl(var(--warning) / 0.28)', kind: 'range', layer: 'school' },
 ];
 
 /**

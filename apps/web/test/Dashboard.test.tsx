@@ -18,11 +18,13 @@ vi.mock('recharts', async (importOriginal) => {
 describe('Dashboard', () => {
   it('renders the key leave and efficiency readouts', () => {
     renderWithProviders(<Dashboard />);
-    expect(screen.getByText('Leave efficiency')).toBeInTheDocument();
+    // "Leave efficiency" appears on both the stat card and the sharpened readout.
+    expect(screen.getAllByText('Leave efficiency').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Days off achieved')).toBeInTheDocument();
     expect(screen.getByText('Budget remaining')).toBeInTheDocument();
+    expect(screen.getByText('Savings progress')).toBeInTheDocument();
     // Efficiency readout is an "N×" multiplier.
-    expect(screen.getByText(/×$/)).toBeInTheDocument();
+    expect(screen.getAllByText(/×$/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders the three chart cards', () => {

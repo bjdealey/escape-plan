@@ -23,6 +23,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { StatCard } from '@/components/StatCard';
 import { usePlanner } from '@/store/planner';
 import { useThemeColors } from '@/lib/useThemeColors';
@@ -45,6 +46,16 @@ export function Dashboard() {
   const unused = Math.max(0, result.bookableLeave - used);
   const currency = input.budget.currency;
   const budgetRemaining = input.budget.holidayFund - plan.totalEstimatedCost;
+
+  // Savings-progress + efficiency readouts.
+  const totalCost = plan.totalEstimatedCost;
+  const fund = input.budget.holidayFund;
+  const yearEndFund = fund + input.budget.monthlySavings * 12;
+  const fundCoverage = totalCost > 0 ? Math.min(100, Math.round((fund / totalCost) * 100)) : 100;
+  const yearEndCoverage =
+    totalCost > 0 ? Math.min(100, Math.round((yearEndFund / totalCost) * 100)) : 100;
+  // Normalise efficiency against a 4× "excellent" reference for the bar.
+  const effPct = Math.min(100, Math.round((plan.efficiency / 4) * 100));
 
   const leaveData = [
     { name: 'Leave spent', value: used, color: colors.primary },
@@ -108,6 +119,59 @@ export function Dashboard() {
           sub={warmest ? `${warmest.destinationName} · ${warmest.weather.label}` : 'Staycations only'}
           icon={<Sun />}
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card glass>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Leave efficiency</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end justify-between">
+              <span className="text-3xl font-bold tracking-tight text-primary">
+                {plan.efficiency.toFixed(2)}×
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {plan.totalDaysOff} days off ÷ {plan.totalLeaveUsed} leave
+              </span>
+            </div>
+            <Progress value={effPct} className="mt-3" aria-label="Leave efficiency" />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {plan.efficiency >= 3
+                ? 'Excellent — bank holidays are doing the heavy lifting.'
+                : plan.efficiency >= 2
+                  ? 'Good use of weekends and holidays.'
+                  : 'Raise “Spend the least leave” to stretch each day further.'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card glass>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Savings progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end justify-between">
+              <span className="text-3xl font-bold tracking-tight">
+                {formatCurrency(fund, currency)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                fund vs {formatCurrency(totalCost, currency)} planned
+              </span>
+            </div>
+            <Progress
+              value={fundCoverage}
+              className="mt-3"
+              indicatorClassName="bg-success"
+              aria-label="Fund coverage of planned spend"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {fundCoverage >= 100
+                ? 'Your fund already covers every planned trip.'
+                : `Fund covers ${fundCoverage}% now · ${yearEndCoverage}% by year-end with ${formatCurrency(input.budget.monthlySavings, currency)}/mo.`}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

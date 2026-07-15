@@ -42,7 +42,9 @@ calendar, and a dashboard.
 | `npm run dev` | Start the Vite web app (http://localhost:5173). |
 | `npm run build` | Type-check + build engine, web, and server. |
 | `npm run typecheck` | Type-check all three packages (zero errors). |
-| `npm test` | Run the engine's Vitest unit tests. |
+| `npm test` | Run the full offline suite: engine unit + server integration + web component. |
+| `npm run test:coverage` | The suite with coverage reports. |
+| `npm run test:e2e` | Playwright core-journey E2E (run `npx playwright install chromium` once). |
 | `npm run dev:server` | Start the Express API (http://localhost:4000). |
 | `npm run db:migrate` | Apply Postgres migrations (needs `DATABASE_URL`). |
 | `npm run db:seed` | Seed Postgres with the demo data + sample plans. |
@@ -137,22 +139,38 @@ npm run dev:server        # http://localhost:4000
 
 | Var | Default | Used by |
 |-----|---------|---------|
-| `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/escape_plan` | server |
+| `DATABASE_URL` | `postgres://…/escape_plan` | server (persistence) |
 | `PORT` | `4000` | server |
 | `ENABLE_AI_PLANNER` | `false` | server (`/api/bootstrap` flag) |
 | `VITE_API_URL` | `http://localhost:4000` | web dev proxy |
+| `VITE_MAPBOX_TOKEN` | _(unset)_ | web maps (placeholder without it) |
 
-The API serves the **seeded fixtures when no database is reachable**, so
-`npm run dev:server` works even without Postgres. Key endpoints:
-`GET /api/health`, `GET /api/bootstrap`, `POST /api/optimise`, and
-`GET /api/integrations/{weather,flights,currency,approval,calendar}` (all mock).
+**Integration flags (all optional; absent ⇒ seeded mock).** See
+`packages/server/.env.example` for the full list.
 
-### Future integrations (scaffolded, not live)
+| Var | Provider (real) | Verified |
+|-----|-----------------|----------|
+| `CURRENCY_PROVIDER=frankfurter` | Frankfurter / ECB (keyless) | ✅ live |
+| `HOLIDAY_PROVIDER=nager` | Nager.Date (keyless) | ✅ live |
+| `WEATHER_PROVIDER=open-meteo` | Open-Meteo ERA5 (keyless) | ✅ live |
+| `AMADEUS_CLIENT_ID` / `_SECRET` | Amadeus flight offers | contract only |
+| `GOOGLE_ACCESS_TOKEN` | Google Calendar (write needs `confirm`) | contract only |
+| `AUTH_PROVIDER` | Auth.js/Clerk seam (dev session default) | n/a |
 
-Weather, flights, currency, HR (BambooHR/Workday/SAP), calendars
-(Google/Microsoft 365/Apple), Teams, maps, and auth (Clerk/Auth.js) all sit
-behind local interfaces returning seeded mock data, each marked
-`// TODO: real integration`. Nothing calls the network.
+The API serves the **seeded fixtures when no database is reachable** and every
+integration **defaults to its seeded mock**, so `npm run dev:server` works with
+zero configuration. Key endpoints: `GET /api/health` (shows live/mock per
+provider), `GET /api/bootstrap`, `POST /api/optimise`,
+`GET /api/integrations/{weather,flights,currency,holidays,approval,calendar}`,
+and `POST /api/integrations/calendar/events` (requires `{ "confirm": true }`).
+
+### Integration design
+
+Each provider sits behind the interface in `packages/server/src/integrations.ts`
+with a real adapter in `packages/server/src/providers/`, selected by env via a
+factory (`providers/index.ts`). External responses are validated with `zod`
+before use (untrusted input); nothing external is executed, and calendar
+write-back is gated on explicit confirmation. See `ITERATION-NOTES.md`.
 
 ---
 
@@ -163,8 +181,9 @@ Reproduce the checks locally:
 ```bash
 npm install          # ✅ succeeds; builds the engine
 npm run typecheck    # ✅ zero TypeScript errors across all packages
-npm test             # ✅ 9 engine tests pass
+npm test             # ✅ 79 tests pass (engine 33 · server 31 + 1 db-gated · web 15)
 npm run build        # ✅ engine + web + server build
+npm run test:e2e     # ✅ Playwright core journey (needs `npx playwright install chromium`)
 npm run dev          # ✅ dev server starts on :5173
 ```
 

@@ -45,4 +45,11 @@ describe('buildCalendarEvents', () => {
     expect(CALENDAR_LEGEND.some((l) => l.kind === 'block')).toBe(true);
     expect(CALENDAR_LEGEND.some((l) => l.kind === 'range')).toBe(true);
   });
+
+  it('every legend item maps to a real event layer (enables toggling)', () => {
+    const eventLayers = new Set(events.map((e) => (e.extendedProps as { layer: string }).layer));
+    for (const item of CALENDAR_LEGEND) {
+      expect(eventLayers.has(item.layer)).toBe(true);
+    }
+  });
 });
