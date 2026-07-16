@@ -1,6 +1,6 @@
 import { buildCalendar, computeBreaks, generateCandidates } from './calendar.js';
 import type { CandidateBreak, DayInfo } from './calendar.js';
-import { suggestDestination } from './destinations.js';
+import { suggestDestination, weatherSummaryFromClimate } from './destinations.js';
 import { ISODate, dateRange, monthOf, seasonOf } from './dateutil.js';
 import { explainPlan, scorePlan, summariseBreaks } from './scoring.js';
 import { colleaguesOffOn } from './groups.js';
@@ -129,12 +129,22 @@ function candidateToBreak(c: CandidateBreak, input: EngineInput): Break {
     suggestion: dest?.suggestion,
     estimatedCost: dest?.cost ?? 0,
     colleagueOverlapDays: overlapDays(c.leaveDates, input),
+    // Staycation (no trip) → show the user's local weather when home is known.
+    homeWeather:
+      !dest && input.home ? weatherSummaryFromClimate(input.home.climate, c.month) : undefined,
   };
 }
 
 /** Strip the travel suggestion so a break becomes a zero-cost staycation. */
-function toStaycation(brk: Break): Break {
-  return { ...brk, suggestion: undefined, estimatedCost: 0 };
+function toStaycation(brk: Break, input: EngineInput): Break {
+  return {
+    ...brk,
+    suggestion: undefined,
+    estimatedCost: 0,
+    homeWeather: input.home
+      ? weatherSummaryFromClimate(input.home.climate, brk.month)
+      : brk.homeWeather,
+  };
 }
 
 /** Build forced breaks from mandatory leave dates. */
@@ -189,7 +199,7 @@ function selectForStrategy(
   // pushing total spend over budget.
   const addBreak = (c: CandidateBreak) => {
     let brk = candidateToBreak(c, input);
-    if (spend + brk.estimatedCost > fund) brk = toStaycation(brk);
+    if (spend + brk.estimatedCost > fund) brk = toStaycation(brk, input);
     breaks.push(brk);
     markOccupied(occupied, c.start, c.end);
     leaveUsed += c.leaveDaysUsed;

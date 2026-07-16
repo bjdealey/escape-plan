@@ -153,6 +153,17 @@ can never read or mutate another group's data without a checked membership.
 - Real IdP login (Clerk/Auth.js) remains a documented seam; the dev switcher
   stands in for it.
 
+### Automatic location
+
+On first run the app guesses your **country + currency** from the browser locale
+(timezone + language) — keyless, no permission prompt, nothing leaves the device
+— and pre-fills onboarding (overridable via the **Home country** picker). Your
+home country also selects a seeded local-climate profile, so **staycation** breaks
+show *your* local weather while trips abroad keep their **destination** weather.
+An optional server IP-geolocation adapter (**ipwho.is**, keyless,
+`LOCATION_PROVIDER=ipwho`, mock GB by default) refines the guess when the API is
+reachable; otherwise the locale heuristic stands alone.
+
 ### Notifications
 
 Multi-user events (invites, approval requests/decisions, shared plans, reminders)
@@ -197,6 +208,7 @@ and **web push** — and are **additive, asynchronous, and authorization-scoped*
 | `AUTH_PROVIDER` | Auth.js/Clerk seam (dev session default) | n/a |
 | `RESEND_API_KEY` / `NOTIFY_EMAIL_FROM` | Resend transactional email | contract only |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push (VAPID) | seam only |
+| `LOCATION_PROVIDER=ipwho` | ipwho.is IP geolocation (keyless) | ✅ live |
 
 The API serves the **seeded fixtures when no database is reachable** and every
 integration **defaults to its seeded mock**, so `npm run dev:server` works with
@@ -222,7 +234,7 @@ Reproduce the checks locally:
 ```bash
 npm install          # ✅ succeeds; builds the engine
 npm run typecheck    # ✅ zero TypeScript errors across all packages
-npm test             # ✅ 154 tests pass (engine 66 · server 56 +4 db-gated · web 32)
+npm test             # ✅ 170 tests pass (engine 74 · server 61 +4 db-gated · web 35)
 npm run build        # ✅ engine + web + server build
 npm run test:e2e     # ✅ Playwright: solo + multi-user journeys (needs `npx playwright install chromium`)
 npm run dev          # ✅ dev server starts on :5173

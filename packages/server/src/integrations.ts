@@ -126,3 +126,21 @@ export const mockHoliday: HolidayProvider = {
     }));
   },
 };
+
+export interface GeoLocation {
+  countryCode: string;
+  currency: string;
+  timezone?: string;
+}
+
+export interface LocationProvider {
+  /** Best-effort location from the caller's IP (no personal data stored). */
+  locate(ip?: string): Promise<GeoLocation>;
+}
+
+export const mockLocation: LocationProvider = {
+  // TODO: real integration — ipapi.co / ip-api.com. Defaults to the UK demo.
+  async locate() {
+    return { countryCode: 'GB', currency: 'GBP', timezone: 'Europe/London' };
+  },
+};

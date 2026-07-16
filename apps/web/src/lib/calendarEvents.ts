@@ -128,7 +128,9 @@ export function buildCalendarEvents(
     for (const brk of plan.breaks) {
       const weather = brk.suggestion
         ? ` · ${Math.round(brk.suggestion.weather.avgTempC)}°C`
-        : '';
+        : brk.homeWeather
+          ? ` · ${Math.round(brk.homeWeather.avgTempC)}°C home`
+          : '';
       const cost = brk.estimatedCost
         ? ` · ${formatCurrency(brk.estimatedCost, input.budget.currency)}`
         : ' · staycation';

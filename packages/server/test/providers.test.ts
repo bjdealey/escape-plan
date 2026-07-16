@@ -7,10 +7,12 @@ import {
   getWeatherProvider,
   providerStatus,
 } from '../src/providers/index.js';
+import { getLocationProvider } from '../src/providers/index.js';
 import { createFrankfurterCurrency } from '../src/providers/currency.js';
 import { createNagerHolidays } from '../src/providers/holidays.js';
 import { createOpenMeteoWeather } from '../src/providers/weather.js';
 import { createAmadeusFlights } from '../src/providers/flights.js';
+import { createIpwhoLocation } from '../src/providers/location.js';
 
 function fakeResponse(json: unknown, ok = true, status = 200) {
   return { ok, status, json: async () => json } as Response;
@@ -25,9 +27,40 @@ afterEach(() => {
     'AMADEUS_CLIENT_ID',
     'AMADEUS_CLIENT_SECRET',
     'GOOGLE_ACCESS_TOKEN',
+    'LOCATION_PROVIDER',
   ]) {
     delete process.env[k];
   }
+});
+
+describe('Location adapter', () => {
+  it('defaults to the mock (GB) and reports live when env-gated', () => {
+    expect(getLocationProvider()).toHaveProperty('locate');
+    expect(providerStatus().location).toBe('mock');
+    process.env.LOCATION_PROVIDER = 'ipwho';
+    expect(providerStatus().location).toBe('live');
+  });
+
+  it('parses ipwho.is and derives a supported currency from the country', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        fakeResponse({ success: true, country_code: 'FR', timezone: { id: 'Europe/Paris' } }),
+      ),
+    );
+    const loc = await createIpwhoLocation().locate();
+    expect(loc).toMatchObject({ countryCode: 'FR', currency: 'EUR', timezone: 'Europe/Paris' });
+  });
+
+  it('throws when the provider reports failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => fakeResponse({ success: false, message: 'quota' })));
+    await expect(createIpwhoLocation().locate()).rejects.toThrow();
+  });
+
+  it('rejects a malformed geolocation response (untrusted input)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => fakeResponse({ country_code: 12345 })));
+    await expect(createIpwhoLocation().locate()).rejects.toThrow();
+  });
 });
 
 describe('provider factory', () => {

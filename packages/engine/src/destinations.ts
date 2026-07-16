@@ -1,5 +1,6 @@
 import { clamp, daysBetween } from './dateutil.js';
 import type {
+  ClimateMonth,
   Destination,
   EngineInput,
   TripSuggestion,
@@ -37,8 +38,12 @@ export function weatherScore(
   return clamp(base);
 }
 
-export function weatherSummary(dest: Destination, month: number): WeatherSummary {
-  const c = climateFor(dest, month);
+/** Summarise a monthly climate profile into a human-readable weather summary. */
+export function weatherSummaryFromClimate(
+  climate: ClimateMonth[],
+  month: number,
+): WeatherSummary {
+  const c = climate.find((x) => x.month === month) ?? climate[0];
   const label = c.hazard
     ? 'Hazard season'
     : c.avgTempC >= 24
@@ -54,6 +59,10 @@ export function weatherSummary(dest: Destination, month: number): WeatherSummary
     hazard: c.hazard,
     label,
   };
+}
+
+export function weatherSummary(dest: Destination, month: number): WeatherSummary {
+  return weatherSummaryFromClimate(dest.climate, month);
 }
 
 export interface CostBreakdown {

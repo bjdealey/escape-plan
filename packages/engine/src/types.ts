@@ -145,6 +145,12 @@ export interface EngineInput {
   colleagueLeave?: DateRangeSpec[];
   /** Max colleagues (incl. the user) allowed off on any working day. */
   maxSimultaneous?: number;
+  /**
+   * The user's home location + climate (optional). When present, staycation
+   * breaks are annotated with the local weather for that month. Absent ⇒
+   * single-user behaviour is unchanged.
+   */
+  home?: { countryCode: string; label: string; climate: ClimateMonth[] };
 }
 
 export interface WeatherSummary {
@@ -181,6 +187,8 @@ export interface Break {
   estimatedCost: number;
   /** Working days in this break that overlap a colleague's leave (group mode). */
   colleagueOverlapDays?: number;
+  /** Local weather for a staycation break (present only when no trip suggested). */
+  homeWeather?: WeatherSummary;
 }
 
 export interface ScoreBreakdown {

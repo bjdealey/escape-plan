@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowLeft, ArrowRight, Check, Compass, Plane } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Compass, MapPin, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,16 +14,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePlanner } from '@/store/planner';
-import type { Season, TripType } from '@escape-plan/engine';
+import {
+  HOME_CLIMATES,
+  SUPPORTED_CURRENCIES,
+  homeProfileForCountry,
+  type Season,
+  type TripType,
+} from '@escape-plan/engine';
 
 const SEASONS: Season[] = ['spring', 'summer', 'autumn', 'winter'];
 const TRIP_TYPES: TripType[] = ['beach', 'city-break', 'adventure', 'skiing', 'walking', 'luxury'];
-const STEPS = ['Leave', 'Preferences', 'Budget', 'Priorities'];
+const STEPS = ['Leave', 'Preferences', 'Location & budget', 'Priorities'];
+const HOME_COUNTRIES = Object.values(HOME_CLIMATES).map((p) => ({ code: p.countryCode, label: p.label }));
 
 export function Onboarding() {
   const {
     input,
     result,
+    detectedLocation,
+    homeCountry,
+    setHomeCountry,
     updateLeave,
     updateBudget,
     updatePreferences,
@@ -160,48 +170,75 @@ export function Onboarding() {
           )}
 
           {step === 2 && (
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Holiday fund">
-                <Input
-                  type="number"
-                  value={budget.holidayFund}
-                  min={0}
-                  step={100}
-                  onChange={(e) => updateBudget({ holidayFund: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Max per-trip budget">
-                <Input
-                  type="number"
-                  value={budget.maxTripBudget}
-                  min={0}
-                  step={50}
-                  onChange={(e) => updateBudget({ maxTripBudget: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Monthly savings">
-                <Input
-                  type="number"
-                  value={budget.monthlySavings}
-                  min={0}
-                  step={25}
-                  onChange={(e) => updateBudget({ monthlySavings: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Currency">
-                <Select value={budget.currency} onValueChange={(v) => updateBudget({ currency: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['GBP', 'EUR', 'USD', 'CHF'].map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  Detected from your device:{' '}
+                  <span className="font-medium text-foreground">
+                    {homeProfileForCountry(homeCountry).label}
+                  </span>{' '}
+                  · {detectedLocation.source === 'default' ? 'best guess' : detectedLocation.source}. Change it below —
+                  it sets your currency and your local (staycation) weather.
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Home country">
+                  <Select value={homeCountry} onValueChange={(v) => setHomeCountry(v)}>
+                    <SelectTrigger aria-label="Home country">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HOME_COUNTRIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Currency">
+                  <Select value={budget.currency} onValueChange={(v) => updateBudget({ currency: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Holiday fund">
+                  <Input
+                    type="number"
+                    value={budget.holidayFund}
+                    min={0}
+                    step={100}
+                    onChange={(e) => updateBudget({ holidayFund: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="Max per-trip budget">
+                  <Input
+                    type="number"
+                    value={budget.maxTripBudget}
+                    min={0}
+                    step={50}
+                    onChange={(e) => updateBudget({ maxTripBudget: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="Monthly savings">
+                  <Input
+                    type="number"
+                    value={budget.monthlySavings}
+                    min={0}
+                    step={25}
+                    onChange={(e) => updateBudget({ monthlySavings: Number(e.target.value) })}
+                  />
+                </Field>
+              </div>
             </div>
           )}
 

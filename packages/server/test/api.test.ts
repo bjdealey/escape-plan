@@ -83,6 +83,12 @@ describe('integration endpoints (mock defaults)', () => {
     const bad = await request(app).get('/api/integrations/flights?from=LONDON&to=BCN');
     expect(bad.status).toBe(400);
   });
+
+  it('returns a location guess (mock GB by default)', async () => {
+    const res = await request(app).get('/api/integrations/location');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ countryCode: 'GB', currency: 'GBP' });
+  });
 });
 
 describe('calendar write-back requires explicit confirmation', () => {

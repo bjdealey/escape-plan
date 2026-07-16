@@ -14,6 +14,7 @@ import {
   getFlightProvider,
   getHolidayProvider,
   getHrProvider,
+  getLocationProvider,
   getWeatherProvider,
   providerStatus,
 } from './providers/index.js';
@@ -158,6 +159,17 @@ export function createApp(
 
   app.get('/api/integrations/calendar', async (_req, res) => {
     res.json(await getCalendarProvider().busyRanges(1));
+  });
+
+  app.get('/api/integrations/location', async (req, res) => {
+    try {
+      const fwd = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+      const ip = /^[0-9a-fA-F.:]+$/.test(fwd) ? fwd : undefined;
+      return res.json(await getLocationProvider().locate(ip));
+    } catch {
+      // Never fail the caller; fall back to the safe default.
+      return res.json({ countryCode: 'GB', currency: 'GBP', timezone: 'Europe/London' });
+    }
   });
 
   // Write-back: creating a calendar event ALWAYS requires explicit confirmation

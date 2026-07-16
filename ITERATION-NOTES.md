@@ -389,3 +389,54 @@ the requester and approvers of that group).
   and the Postgres notification store — reported as skipped locally, not passing.
 - **Not implemented (kept honest):** provider bounce/complaint webhooks are a
   documented Resend seam, not wired without keys.
+
+---
+
+# Phase 5 — Automatic location detection
+
+Adds keyless location awareness for currency + local (staycation) weather, plus
+a consistent server IP-geolocation seam. Additive; cold-start-without-keys and
+the deterministic engine are unchanged.
+
+## What it does
+- **Locale heuristic (default, keyless, no prompt):** the web reads
+  `Intl.DateTimeFormat().resolvedOptions().timeZone` + `navigator.language` and
+  maps them to a country + currency (pure `guessLocationFromLocale` in the
+  engine). Applied to a fresh user's currency + "home" profile; fully
+  overridable in onboarding (a "Home country" select) — nothing leaves the
+  device.
+- **Home / staycation weather:** `EngineInput.home` (optional) carries a seeded
+  monthly climate profile; the optimiser annotates every *staycation* break with
+  `homeWeather` for that month. **Foreign trips keep their destination weather**
+  (unchanged) — exactly the split requested. Absent `home` ⇒ engine output is
+  byte-identical to before, so existing tests/solo journey are unaffected.
+- **Server `LocationProvider` seam:** env-gated IP geolocation via **ipwho.is**
+  (keyless HTTPS; `LOCATION_PROVIDER=ipwho`), mock (GB) by default, exposed at
+  `GET /api/integrations/location`. The web optionally calls it to refine a
+  fresh guess and silently falls back to the locale heuristic.
+
+## Providers / env
+| Concern | Real provider | Env gate | Verified live? |
+|---------|---------------|----------|----------------|
+| IP geolocation | **ipwho.is** (keyless HTTPS) | `LOCATION_PROVIDER=ipwho` | ✅ yes (returned CA/CAD/America-Toronto) |
+
+Seeded home-climate profiles ship for GB, IE, ES, FR, DE, US (approximate
+national averages), defaulting to GB — documented as extensible.
+
+## Honesty
+- `ipapi.co` was tried first but its free tier now rate-limits/requires signup
+  (HTTP 429), so the adapter was switched to **ipwho.is**, which I verified live.
+- School-holiday *datasets* remain UK-only: detection sets the country (which
+  the server bank-holiday provider already uses) but per-country school-holiday
+  ranges are not shipped — recorded as not implemented rather than faked.
+
+## Coverage (Phase 5)
+`npm test` runs 170 tests offline (+4 DB-gated skipped):
+- Engine: 74 (+8) — locale guess, currency map, home profiles, staycation
+  `homeWeather` present / trips-abroad unaffected / solo unchanged.
+- Server: 61 (+5) — location factory default mock, ipwho parse + failure +
+  malformed rejection, `/api/integrations/location` route.
+- Web: 35 (+3) — locale detection, fresh-user home + detected currency,
+  changing home country updates currency + profile. Verified in-browser:
+  onboarding detects UK, switching to Spain flips currency to EUR and staycation
+  chips show Spanish local temperatures; no console errors.

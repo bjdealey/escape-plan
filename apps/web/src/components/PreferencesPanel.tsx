@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePlanner } from '@/store/planner';
-import type { Season, TripType, Weights } from '@escape-plan/engine';
+import { SUPPORTED_CURRENCIES, type Season, type TripType, type Weights } from '@escape-plan/engine';
 
 const WEIGHT_LABELS: { key: keyof Weights; label: string; hint: string }[] = [
   { key: 'maximiseConsecutive', label: 'Maximise consecutive days off', hint: 'Longer single breaks' },
@@ -29,7 +29,7 @@ const TRIP_TYPES: TripType[] = [
   'beach', 'city-break', 'road-trip', 'adventure', 'luxury', 'camping', 'skiing', 'walking', 'cruise',
 ];
 const SEASONS: Season[] = ['spring', 'summer', 'autumn', 'winter'];
-const CURRENCIES = ['GBP', 'EUR', 'USD', 'CHF'];
+const CURRENCIES = SUPPORTED_CURRENCIES;
 
 export function PreferencesPanel() {
   const { input, updateWeights, updateLeave, updateBudget, updatePreferences, toggleTripType, reset } =

@@ -9,12 +9,14 @@ import {
   mockFlights,
   mockHoliday,
   mockHr,
+  mockLocation,
   mockWeather,
   type CalendarProvider,
   type CurrencyProvider,
   type FlightProvider,
   type HolidayProvider,
   type HrProvider,
+  type LocationProvider,
   type WeatherProvider,
 } from '../integrations.js';
 import { createFrankfurterCurrency } from './currency.js';
@@ -22,6 +24,11 @@ import { createNagerHolidays } from './holidays.js';
 import { createOpenMeteoWeather } from './weather.js';
 import { createAmadeusFlights } from './flights.js';
 import { createGoogleCalendar } from './calendar.js';
+import { createIpwhoLocation } from './location.js';
+
+export function getLocationProvider(): LocationProvider {
+  return process.env.LOCATION_PROVIDER === 'ipwho' ? createIpwhoLocation() : mockLocation;
+}
 
 export function getCurrencyProvider(): CurrencyProvider {
   return process.env.CURRENCY_PROVIDER === 'frankfurter'
@@ -70,5 +77,6 @@ export function providerStatus(): Record<string, 'live' | 'mock'> {
       process.env.AMADEUS_CLIENT_ID && process.env.AMADEUS_CLIENT_SECRET ? 'live' : 'mock',
     calendar: process.env.GOOGLE_ACCESS_TOKEN ? 'live' : 'mock',
     hr: 'mock',
+    location: process.env.LOCATION_PROVIDER === 'ipwho' ? 'live' : 'mock',
   };
 }
