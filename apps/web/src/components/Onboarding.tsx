@@ -44,6 +44,13 @@ export function Onboarding() {
   const [step, setStep] = React.useState(0);
   const { leave, budget, preferences } = input;
 
+  const detectionSource =
+    detectedLocation.source === 'timezone'
+      ? "your device’s time zone"
+      : detectedLocation.source === 'language'
+        ? "your device’s language"
+        : 'a default (we couldn’t tell)';
+
   const toggleSeason = (s: Season) => {
     const has = preferences.preferredSeasons.includes(s);
     updatePreferences({
@@ -171,16 +178,27 @@ export function Onboarding() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-primary" />
-                  Detected from your device:{' '}
-                  <span className="font-medium text-foreground">
-                    {homeProfileForCountry(homeCountry).label}
-                  </span>{' '}
-                  · {detectedLocation.source === 'default' ? 'best guess' : detectedLocation.source}. Change it below —
-                  it sets your currency and your local (staycation) weather.
-                </span>
+              <div className="rounded-lg border border-border bg-muted/40 p-3">
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-foreground">Where are you based?</p>
+                    <p>
+                      We’ve guessed{' '}
+                      <span className="font-medium text-foreground">
+                        {homeProfileForCountry(homeCountry).label}
+                      </span>{' '}
+                      from {detectionSource} — no GPS, no IP lookup, and nothing leaves your device.
+                      Please confirm or change it below.
+                    </p>
+                    <p>
+                      This sets your <span className="font-medium text-foreground">currency</span>, your
+                      local <span className="font-medium text-foreground">staycation weather</span>, and
+                      your <span className="font-medium text-foreground">bank-holiday</span> country.
+                      School-holiday dates are UK-only for now.
+                    </p>
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Home country">
