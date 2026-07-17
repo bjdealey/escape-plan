@@ -147,7 +147,7 @@ function PlanCard({
               <span className="text-muted-foreground">
                 {b.totalDaysOff}d · {b.leaveDaysUsed} leave
                 {b.suggestion
-                  ? ` · ${b.suggestion.destinationName}`
+                  ? ` · ${b.suggestion.destinationName} (${b.suggestion.tripType.replace('-', ' ')})`
                   : b.homeWeather
                     ? ` · staycation · ${Math.round(b.homeWeather.avgTempC)}°C home`
                     : ' · staycation'}

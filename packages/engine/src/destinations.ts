@@ -96,21 +96,33 @@ export function suggestDestination(
   candidate: CandidateBreak,
   input: EngineInput,
 ): { suggestion: TripSuggestion; cost: number } | undefined {
-  const wantTypes = input.preferences.tripTypes;
+  const prefs = input.preferences;
+  const wantTypes = prefs.tripTypes;
+  const scope = prefs.travelScope ?? 'any';
+  const avoid = prefs.avoidCountries ?? [];
+  const preferred = prefs.preferredCountries ?? [];
   let best: { suggestion: TripSuggestion; cost: number; rank: number } | undefined;
 
   for (const dest of input.destinations) {
+    // --- Hard filters: only suggest what the user's preferences allow -------
+    // Trip type: if the user selected any, require the destination to offer one.
+    if (wantTypes.length > 0 && !dest.tripTypes.some((t) => wantTypes.includes(t))) continue;
+    // Domestic / international scope.
+    if (scope === 'domestic' && !dest.domestic) continue;
+    if (scope === 'international' && dest.domestic) continue;
+    // Country allow/block lists.
+    if (avoid.includes(dest.countryCode)) continue;
+    if (preferred.length > 0 && !preferred.includes(dest.countryCode)) continue;
+    // Max flight time.
+    if (prefs.maxFlightHours !== undefined && dest.flightHours > prefs.maxFlightHours) continue;
+    // Budget.
     const cost = estimateCost(dest, candidate);
     if (cost.total > input.budget.maxTripBudget) continue;
+
     const wScore = weatherScore(dest, candidate.month, input);
-    const typeMatch =
-      wantTypes.length === 0
-        ? 0.5
-        : dest.tripTypes.some((t) => wantTypes.includes(t))
-          ? 1
-          : 0.2;
-    // Deterministic ranking: weather + type match, tie-break on id.
-    const rank = wScore * 0.7 + typeMatch * 0.3;
+    // Everything here already matches the trip type; rank on weather, then a
+    // small boost for preferred countries.
+    const rank = wScore + (preferred.includes(dest.countryCode) ? 0.05 : 0);
     const tripType =
       dest.tripTypes.find((t) => wantTypes.includes(t)) ?? dest.tripTypes[0];
     const candidateSuggestion = {

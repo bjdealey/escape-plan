@@ -440,3 +440,27 @@ national averages), defaulting to GB — documented as extensible.
   changing home country updates currency + profile. Verified in-browser:
   onboarding detects UK, switching to Spain flips currency to EUR and staycation
   chips show Spanish local temperatures; no console errors.
+
+---
+
+# Phase 6 — Suggestions driven by travel preferences
+
+Destinations were only *soft-ranked* by trip type, so a place like Barcelona
+could appear regardless of intent. Now `suggestDestination` **hard-filters** the
+seeded destinations by the user's travel preferences before ranking on weather:
+
+- **Trip types** (existing): a destination must offer at least one selected type,
+  else it's excluded (no match on any break ⇒ staycation).
+- **Travel scope** (new): domestic-only / international-only / anywhere.
+- **Countries to avoid / preferred** (new): block- and allow-lists by ISO code.
+- **Max flight time** (new): excludes long-haul destinations (0h ⇒ domestic).
+- Budget cap unchanged.
+
+All new `Preferences` fields are **optional** (absent ⇒ no constraint), so
+`demoInput()` and existing tests are unchanged. UI: a new **Travel preferences**
+card in the Preferences tab (scope, max-flight-time slider, countries-to-avoid
+chips); plan chips now show the matched trip type, e.g. "Cornwall (beach)".
+
+Coverage: engine 80 (+6 travel-filter tests), web 37 (+2 travel-prefs UI).
+Verified in-browser: setting *Domestic only* switched every suggestion to UK
+destinations (Cornwall/Edinburgh) — Barcelona no longer appears; no console errors.

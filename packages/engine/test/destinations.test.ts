@@ -25,6 +25,50 @@ function candidate(start: string, end: string, leaveDays = 3): CandidateBreak {
   };
 }
 
+const summerTrip = candidate('2026-07-01', '2026-07-05');
+function withPrefs(overrides: Record<string, unknown>) {
+  const base = demoInput();
+  return demoInput({ preferences: { ...base.preferences, ...overrides } });
+}
+
+describe('suggestions come from travel preferences', () => {
+  it('trip types hard-filter: skiing → only a ski destination (never Barcelona)', () => {
+    const picked = suggestDestination(summerTrip, withPrefs({ tripTypes: ['skiing'] }));
+    expect(picked?.suggestion.destinationName).toBe('Chamonix');
+  });
+
+  it('domestic scope → never suggests a place abroad', () => {
+    const picked = suggestDestination(
+      summerTrip,
+      withPrefs({ travelScope: 'domestic', tripTypes: ['beach', 'walking'] }),
+    );
+    expect(picked?.suggestion.country).toBe('United Kingdom');
+  });
+
+  it('avoided countries are never suggested', () => {
+    const picked = suggestDestination(summerTrip, withPrefs({ avoidCountries: ['ES'] }));
+    expect(picked?.suggestion.country).not.toBe('Spain');
+  });
+
+  it('preferred countries restrict the pool', () => {
+    const picked = suggestDestination(summerTrip, withPrefs({ preferredCountries: ['GR'] }));
+    if (picked) expect(picked.suggestion.country).toBe('Greece');
+  });
+
+  it('max flight time excludes long-haul destinations', () => {
+    // 0 hours ⇒ domestic only (all seeded domestic flights are 0h).
+    const picked = suggestDestination(
+      summerTrip,
+      withPrefs({ maxFlightHours: 0, tripTypes: ['beach', 'walking'] }),
+    );
+    expect(picked?.suggestion.country).toBe('United Kingdom');
+  });
+
+  it('falls back to a staycation when preferences exclude everything', () => {
+    expect(suggestDestination(summerTrip, withPrefs({ preferredCountries: ['ZZ'] }))).toBeUndefined();
+  });
+});
+
 describe('weatherScore', () => {
   it('rewards warm, sunny months for a beach lover', () => {
     const input = demoInput();

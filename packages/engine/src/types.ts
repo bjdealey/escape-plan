@@ -113,7 +113,18 @@ export interface Preferences {
   tripTypes: TripType[];
   avoidSchoolHolidays: boolean;
   personalDates: PersonalDate[];
+  // --- Travel preferences (all optional; absent ⇒ no constraint) -----------
+  /** Restrict suggestions to domestic-only, international-only, or anywhere. */
+  travelScope?: TravelScope;
+  /** If non-empty, only suggest destinations in these ISO country codes. */
+  preferredCountries?: string[];
+  /** Never suggest destinations in these ISO country codes. */
+  avoidCountries?: string[];
+  /** Exclude destinations whose flight time exceeds this many hours. */
+  maxFlightHours?: number;
 }
+
+export type TravelScope = 'domestic' | 'international' | 'any';
 
 export interface BudgetConfig {
   currency: string; // ISO 4217

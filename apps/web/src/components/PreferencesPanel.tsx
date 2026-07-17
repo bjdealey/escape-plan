@@ -45,6 +45,18 @@ export function PreferencesPanel() {
     });
   };
 
+  // Travel preferences drive which destinations the engine may suggest.
+  const countries = Array.from(
+    new Map(input.destinations.map((d) => [d.countryCode, d.country])).entries(),
+  ).map(([code, name]) => ({ code, name }));
+  const scope = preferences.travelScope ?? 'any';
+  const avoid = preferences.avoidCountries ?? [];
+  const flightLimit = preferences.maxFlightHours ?? 14;
+  const toggleAvoid = (code: string) =>
+    updatePreferences({
+      avoidCountries: avoid.includes(code) ? avoid.filter((c) => c !== code) : [...avoid, code],
+    });
+
   return (
     <div className="grid gap-4 lg:grid-cols-2 animate-fade-in">
       <Card glass>
@@ -252,6 +264,89 @@ export function PreferencesPanel() {
           </CardContent>
         </Card>
       </div>
+
+      <Card glass className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Travel preferences</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            These decide which destinations plans may suggest. Trip types (above) also apply — a
+            break with no match becomes a staycation.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-5 md:grid-cols-3">
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium">Travel scope</legend>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['any', 'Anywhere'],
+                  ['domestic', 'Domestic only'],
+                  ['international', 'International'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={scope === value}
+                  onClick={() => updatePreferences({ travelScope: value })}
+                  className={`rounded-full border px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    scope === value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <Label htmlFor="max-flight">Max flight time</Label>
+              <span className="text-sm font-semibold tabular-nums text-primary">
+                {flightLimit >= 14 ? 'Any' : `${flightLimit}h`}
+              </span>
+            </div>
+            <Slider
+              id="max-flight"
+              value={[flightLimit]}
+              min={0}
+              max={14}
+              step={1}
+              onValueChange={([v]) =>
+                updatePreferences({ maxFlightHours: v >= 14 ? undefined : v })
+              }
+              aria-label="Maximum flight time"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">0h keeps trips domestic.</p>
+          </div>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium">Countries to avoid</legend>
+            <div className="flex flex-wrap gap-2">
+              {countries.map((c) => {
+                const active = avoid.includes(c.code);
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleAvoid(c.code)}
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                      active
+                        ? 'border-destructive bg-destructive text-destructive-foreground'
+                        : 'border-border bg-card text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        </CardContent>
+      </Card>
     </div>
   );
 }
