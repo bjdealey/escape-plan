@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useGroups } from '@/store/groups';
 import { useNotifications } from '@/store/notifications';
+import { track } from '@/lib/analytics';
 
 const CHANNELS: Channel[] = ['inapp', 'email', 'push'];
 const CHANNEL_LABEL: Record<Channel, string> = { inapp: 'In-app', email: 'Email', push: 'Push' };
@@ -30,10 +31,13 @@ export function NotificationPreferences() {
     notifications.setPref(next);
   };
 
-  const toggleChannel = (type: NotificationType, channel: Channel, value: boolean) =>
+  const toggleChannel = (type: NotificationType, channel: Channel, value: boolean) => {
     update((p) => {
       p.overrides[type] = { ...p.overrides[type], [channel]: value };
     });
+    // Only opt-ins are of funnel interest; opt-outs are respected silently.
+    if (value) track('notification_channel_enabled', { type, channel });
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -133,7 +137,10 @@ export function NotificationPreferences() {
             </p>
             <Button
               variant="outline"
-              onClick={() => notifications.requestPush()}
+              onClick={() => {
+                track('notification_channel_enabled', { channel: 'push' });
+                notifications.requestPush();
+              }}
               disabled={notifications.pushPermission === 'granted' || notifications.pushPermission === 'unsupported'}
               className="gap-2"
             >

@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Check, Info, MapPin, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,11 +12,43 @@ import {
 } from '@/components/ui/tooltip';
 import { PURPOSE_LABELS } from '@escape-plan/engine';
 import { usePlanner } from '@/store/planner';
+import { useGroups } from '@/store/groups';
+import { track } from '@/lib/analytics';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
-import type { Plan } from '@escape-plan/engine';
+import type { Break, ISODate, Plan } from '@escape-plan/engine';
 
-export function PlansView() {
+/** Likelihood of leave being approved for a date range, or `null` if N/A. */
+type ApprovalFor = (start: ISODate, end: ISODate) => number;
+
+export function PlansView({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { result, selectedPlanId, setSelectedPlanId, input } = usePlanner();
+  const g = useGroups();
+
+  // Approval likelihood only means something where leave needs approving: a
+  // *team* the user belongs to (households auto-approve). Prefer the currently
+  // selected group if it's a team, else their first team; otherwise show none.
+  const teamId = React.useMemo(() => {
+    const selected = g.myGroups.find(
+      (x) => x.group.id === g.selectedGroupId && x.group.type === 'team',
+    );
+    return (selected ?? g.myGroups.find((x) => x.group.type === 'team'))?.group.id ?? null;
+  }, [g.myGroups, g.selectedGroupId]);
+
+  const teamName = teamId ? g.groups.find((x) => x.id === teamId)?.name : undefined;
+  const approvalFor: ApprovalFor | undefined = teamId
+    ? (start, end) => g.approvalLikelihood(teamId, start, end)
+    : undefined;
+
+  // One-click: stage a break's dates into the team's approval form and jump
+  // there, so the user never re-types dates the plan already knows.
+  const requestBreak = teamId
+    ? (b: Break) => {
+        g.selectGroup(teamId);
+        g.setRequestDraft({ start: b.start, end: b.end });
+        track('leave_request_prefilled', { start: b.start, end: b.end, groupId: teamId });
+        onNavigate?.('group');
+      }
+    : undefined;
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -33,7 +66,13 @@ export function PlansView() {
           rank={i + 1}
           currency={input.budget.currency}
           selected={plan.id === selectedPlanId}
-          onSelect={() => setSelectedPlanId(plan.id)}
+          approvalFor={approvalFor}
+          teamName={teamName}
+          onRequestBreak={requestBreak}
+          onSelect={() => {
+            track('plan_selected', { planId: plan.id, rank: i + 1, score: plan.score });
+            setSelectedPlanId(plan.id);
+          }}
         />
       ))}
     </div>
@@ -45,12 +84,18 @@ function PlanCard({
   rank,
   currency,
   selected,
+  approvalFor,
+  teamName,
+  onRequestBreak,
   onSelect,
 }: {
   plan: Plan;
   rank: number;
   currency: string;
   selected: boolean;
+  approvalFor?: ApprovalFor;
+  teamName?: string;
+  onRequestBreak?: (b: Break) => void;
   onSelect: () => void;
 }) {
   const topCriteria = [...plan.scoreBreakdown]
@@ -155,6 +200,22 @@ function PlanCard({
                       ? ` · staycation · ${Math.round(b.homeWeather.avgTempC)}°C home`
                       : ' · staycation'}
               </span>
+              {approvalFor && b.leaveDaysUsed > 0 ? (
+                <ApprovalHint
+                  likelihood={approvalFor(b.start, b.end)}
+                  teamName={teamName}
+                />
+              ) : null}
+              {selected && onRequestBreak && b.leaveDaysUsed > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => onRequestBreak(b)}
+                  title={`Request ${formatDateShort(b.start)}–${formatDateShort(b.end)} off from ${teamName ?? 'your team'}`}
+                  className="ml-0.5 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                >
+                  Request
+                </button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -168,6 +229,25 @@ function PlanCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * A compact, honest indicator of how likely this break is to be approved by the
+ * user's team — derived from real colleague overlap and the team's capacity, not
+ * a manufactured number. Renders the provenance in the accessible label so the
+ * figure is never presented as pressure.
+ */
+function ApprovalHint({ likelihood, teamName }: { likelihood: number; teamName?: string }) {
+  const pct = Math.round(likelihood * 100);
+  const tone =
+    likelihood >= 0.75 ? 'text-success' : likelihood >= 0.5 ? 'text-warning' : 'text-destructive';
+  const where = teamName ? `${teamName}'s` : 'your team’s';
+  const label = `${pct}% likely to be approved, based on ${where} real leave overlap and capacity`;
+  return (
+    <span className={`font-medium ${tone}`} title={label} aria-label={label}>
+      · {pct}% approval
+    </span>
   );
 }
 

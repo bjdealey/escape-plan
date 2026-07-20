@@ -23,12 +23,33 @@ import { Onboarding } from '@/components/Onboarding';
 import { usePlanner } from '@/store/planner';
 import { useGroups } from '@/store/groups';
 import { useTheme } from '@/store/theme';
+import { track } from '@/lib/analytics';
+
+const TAB_KEY = 'escape-plan-tab';
 
 export default function App() {
   const { onboarded, aiEnabled, setAiEnabled, result, selectedPlanId } = usePlanner();
   const groups = useGroups();
   const { theme, toggle } = useTheme();
-  const [tab, setTab] = React.useState('dashboard');
+  const [tab, setTab] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem(TAB_KEY) ?? 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
+
+  // Persist the active tab so a return visit reopens where the user left off,
+  // and record tab views so section engagement can be measured.
+  const changeTab = React.useCallback((t: string) => {
+    setTab(t);
+    try {
+      localStorage.setItem(TAB_KEY, t);
+    } catch {
+      /* ignore */
+    }
+    track('tab_viewed', { tab: t });
+  }, []);
 
   if (!onboarded) return <Onboarding />;
 
@@ -84,7 +105,7 @@ export default function App() {
                 aria-label="Toggle AI planner rephrasing"
               />
             </div>
-            <NotificationCenter onNavigate={(t) => setTab(t)} />
+            <NotificationCenter onNavigate={(t) => changeTab(t)} />
             <Button
               variant="outline"
               size="icon"
@@ -107,7 +128,7 @@ export default function App() {
           </p>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={changeTab}>
           <TabsList
             className="flex w-full flex-wrap justify-start gap-1"
             aria-label="Planner sections"
@@ -142,7 +163,7 @@ export default function App() {
             <CalendarView />
           </TabsContent>
           <TabsContent value="plans">
-            <PlansView />
+            <PlansView onNavigate={changeTab} />
           </TabsContent>
           <TabsContent value="assistant">
             <AiPlanner />

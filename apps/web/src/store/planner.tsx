@@ -18,6 +18,9 @@ import { detectLocaleLocation, detectServerLocation } from '@/lib/detectLocation
 
 const INPUT_KEY = 'escape-plan-input';
 const ONBOARD_KEY = 'escape-plan-onboarded';
+const SELECTED_KEY = 'escape-plan-selected';
+
+const DEFAULT_PLAN_ID = 'plan-1';
 
 interface PlannerContextValue {
   input: EngineInput;
@@ -79,7 +82,13 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
   });
-  const [selectedPlanId, setSelectedPlanId] = React.useState('plan-1');
+  const [selectedPlanId, setSelectedPlanId] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem(SELECTED_KEY) ?? DEFAULT_PLAN_ID;
+    } catch {
+      return DEFAULT_PLAN_ID;
+    }
+  });
   const [aiEnabled, setAiEnabled] = React.useState(false);
 
   const result = React.useMemo(() => optimise(input), [input]);
@@ -91,6 +100,16 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       /* ignore */
     }
   }, [input]);
+
+  // Persist the user's committed plan so a return visit keeps their choice
+  // instead of silently resetting to plan-1.
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(SELECTED_KEY, selectedPlanId);
+    } catch {
+      /* ignore */
+    }
+  }, [selectedPlanId]);
 
   // Progressive enhancement: if the server offers IP geolocation, refine a
   // fresh user's guess — but only while they haven't overridden it themselves.
@@ -179,7 +198,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
           budget: { ...demoInput().budget, currency: detected.currency },
         });
         setOnboarded(false);
-        setSelectedPlanId('plan-1');
+        setSelectedPlanId(DEFAULT_PLAN_ID);
       },
     }),
     [input, result, onboarded, selectedPlanId, aiEnabled, setOnboarded],

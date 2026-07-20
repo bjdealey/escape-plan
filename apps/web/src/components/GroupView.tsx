@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useGroups } from '@/store/groups';
 import { usePlanner } from '@/store/planner';
+import { track } from '@/lib/analytics';
 import { formatDateShort } from '@/lib/utils';
 import type { LeaveState, PrivacySetting, Role } from '@escape-plan/engine';
 
@@ -227,6 +228,7 @@ function InvitesCard({ groupId, run }: { groupId: string; run: (fn: () => void) 
               e.preventDefault();
               run(() => {
                 g.invite(groupId, email, role);
+                track('invite_sent', { groupId, role });
                 setEmail('');
               });
             }}
@@ -296,8 +298,20 @@ function ApprovalCard({ groupId, run }: { groupId: string; run: (fn: () => void)
   const g = useGroups();
   const [start, setStart] = React.useState('2026-10-05');
   const [end, setEnd] = React.useState('2026-10-09');
+  const [prefilled, setPrefilled] = React.useState(false);
   const requests = g.requestsFor(groupId);
   const likelihood = g.approvalLikelihood(groupId, start, end);
+
+  // Adopt dates staged from a plan break, then clear the draft so it's applied
+  // once. The user still reviews and submits — nothing is requested for them.
+  const draft = g.requestDraft;
+  React.useEffect(() => {
+    if (!draft) return;
+    setStart(draft.start);
+    setEnd(draft.end);
+    setPrefilled(true);
+    g.setRequestDraft(null);
+  }, [draft, g]);
 
   return (
     <Card glass>
@@ -307,24 +321,48 @@ function ApprovalCard({ groupId, run }: { groupId: string; run: (fn: () => void)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {prefilled ? (
+          <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-foreground">
+            Dates filled from your selected plan — review and submit when you’re ready.
+          </p>
+        ) : null}
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => g.requestLeave(groupId, start, end));
+            run(() => {
+              g.requestLeave(groupId, start, end);
+              setPrefilled(false);
+            });
           }}
         >
           <div>
             <Label htmlFor="req-start" className="mb-1 block text-xs">
               From
             </Label>
-            <Input id="req-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <Input
+              id="req-start"
+              type="date"
+              value={start}
+              onChange={(e) => {
+                setStart(e.target.value);
+                setPrefilled(false);
+              }}
+            />
           </div>
           <div>
             <Label htmlFor="req-end" className="mb-1 block text-xs">
               To
             </Label>
-            <Input id="req-end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <Input
+              id="req-end"
+              type="date"
+              value={end}
+              onChange={(e) => {
+                setEnd(e.target.value);
+                setPrefilled(false);
+              }}
+            />
           </div>
           <Button type="submit">Request</Button>
         </form>
@@ -392,13 +430,26 @@ function SharingCard({ groupId, run }: { groupId: string; run: (fn: () => void) 
           </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => run(() => g.sharePlan(selectedPlanId, groupId, 'view'))}>
+          <Button
+            size="sm"
+            onClick={() =>
+              run(() => {
+                g.sharePlan(selectedPlanId, groupId, 'view');
+                track('plan_shared', { planId: selectedPlanId, level: 'view' });
+              })
+            }
+          >
             Share view-only
           </Button>
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => run(() => g.sharePlan(selectedPlanId, groupId, 'coedit'))}
+            onClick={() =>
+              run(() => {
+                g.sharePlan(selectedPlanId, groupId, 'coedit');
+                track('plan_shared', { planId: selectedPlanId, level: 'coedit' });
+              })
+            }
           >
             Share for co-edit
           </Button>

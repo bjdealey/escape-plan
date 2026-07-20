@@ -3,8 +3,12 @@ import FullCalendar from '@fullcalendar/react';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { CalendarPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePlanner } from '@/store/planner';
+import { track } from '@/lib/analytics';
+import { downloadPlanIcs } from '@/lib/icsExport';
 import {
   CALENDAR_LEGEND,
   type CalendarLayer,
@@ -15,6 +19,16 @@ export function CalendarView() {
   const { input, result, selectedPlanId, colleagues } = usePlanner();
   const plan = result.plans.find((p) => p.id === selectedPlanId) ?? result.plans[0];
   const [hidden, setHidden] = React.useState<Set<CalendarLayer>>(new Set());
+
+  const exportPlan = () => {
+    const ok = downloadPlanIcs(plan);
+    track('plan_exported', {
+      planId: plan.id,
+      breakCount: plan.breaks.length,
+      format: 'ics',
+      ok,
+    });
+  };
 
   const allEvents = React.useMemo(
     () => buildCalendarEvents(input, plan, colleagues),
@@ -46,6 +60,10 @@ export function CalendarView() {
             Toggle any layer — leave, holidays, colleagues, blackouts, weather &amp; budget.
           </p>
         </div>
+        <Button variant="outline" className="shrink-0 gap-2" onClick={exportPlan}>
+          <CalendarPlus className="h-4 w-4" />
+          Add to calendar
+        </Button>
       </CardHeader>
       <CardContent>
         <div

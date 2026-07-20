@@ -42,6 +42,12 @@ function genToken(): string {
 const uid = (p: string) => `${p}-${genToken().slice(0, 8)}`;
 const nowIso = () => new Date().toISOString();
 
+/** Dates handed from a plan break to the approval form (one-click request). */
+export interface RequestDraft {
+  start: string;
+  end: string;
+}
+
 interface State {
   currentUserId: number;
   memberships: Membership[];
@@ -50,6 +56,7 @@ interface State {
   shares: PlanShareRecord[];
   privacy: { userId: number; groupId: string; setting: PrivacySetting }[];
   selectedGroupId: string | null;
+  requestDraft: RequestDraft | null;
 }
 
 export interface GroupsContextValue {
@@ -61,6 +68,9 @@ export interface GroupsContextValue {
   myGroups: { group: Group; role: Role }[];
   selectedGroupId: string | null;
   selectGroup: (id: string) => void;
+  /** A plan break's dates staged for the approval form, or null. */
+  requestDraft: RequestDraft | null;
+  setRequestDraft: (draft: RequestDraft | null) => void;
 
   roleIn: (groupId: string) => Role | null;
   membersOf: (groupId: string) => (Membership & { name: string; privacy: PrivacySetting })[];
@@ -101,6 +111,7 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
     shares: clone(DEMO_PLAN_SHARES),
     privacy: clone(DEMO_PRIVACY),
     selectedGroupId: 'g-team',
+    requestDraft: null,
   }));
   const notifications = useNotifications();
 
@@ -150,6 +161,8 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
         .filter((x) => x.group),
       selectedGroupId: state.selectedGroupId,
       selectGroup: (id) => setState((s) => ({ ...s, selectedGroupId: id })),
+      requestDraft: state.requestDraft,
+      setRequestDraft: (draft) => setState((s) => ({ ...s, requestDraft: draft })),
 
       roleIn,
       membersOf: (groupId) =>

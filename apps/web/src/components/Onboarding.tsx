@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePlanner } from '@/store/planner';
+import { track } from '@/lib/analytics';
 import {
   HOME_CLIMATES,
   SUPPORTED_CURRENCIES,
@@ -60,8 +61,16 @@ export function Onboarding() {
     });
   };
 
-  const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  const next = () => {
+    track('onboarding_step_completed', { step, label: STEPS[step] });
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  };
   const prev = () => setStep((s) => Math.max(0, s - 1));
+
+  const finish = (via: 'finish' | 'skip') => {
+    track('onboarding_completed', { via, step });
+    setOnboarded(true);
+  };
 
   return (
     <div className="app-gradient flex min-h-screen items-center justify-center p-4">
@@ -303,7 +312,7 @@ export function Onboarding() {
                 Next <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={() => setOnboarded(true)} className="gap-1.5">
+              <Button onClick={() => finish('finish')} className="gap-1.5">
                 <Plane className="h-4 w-4" /> Generate my plans
               </Button>
             )}
@@ -313,7 +322,7 @@ export function Onboarding() {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setOnboarded(true)}
+                onClick={() => finish('skip')}
                 className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Skip setup — explore the seeded demo
