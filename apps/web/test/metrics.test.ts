@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { demoInput, optimise } from '@escape-plan/engine';
-import { countdown, daysOffByMonth, monthlyBudget } from '@/lib/metrics';
+import { countdown, daysOffByMonth, monthlyBudget, todayISO } from '@/lib/metrics';
 
 const input = demoInput();
 const plan = optimise(input).plans[0];
@@ -36,5 +36,18 @@ describe('countdown', () => {
     }
     // No breaks after year end.
     expect(countdown(plan, '2027-01-01').days).toBeNull();
+  });
+
+  it('defaults to the real current date rather than a fixed constant', () => {
+    // Countdown with no explicit date must match passing today's local date,
+    // proving it is not anchored to a hardcoded day.
+    expect(countdown(plan).days).toBe(countdown(plan, todayISO()).days);
+  });
+});
+
+describe('todayISO', () => {
+  it('formats a local date as YYYY-MM-DD', () => {
+    expect(todayISO(new Date(2026, 6, 21))).toBe('2026-07-21'); // month is 0-indexed
+    expect(todayISO(new Date(2026, 0, 5))).toBe('2026-01-05'); // zero-padded
   });
 });

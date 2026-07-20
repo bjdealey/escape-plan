@@ -28,12 +28,10 @@ import { Bot } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { usePlanner } from '@/store/planner';
 import { useThemeColors } from '@/lib/useThemeColors';
-import { countdown, daysOffByMonth, monthlyBudget } from '@/lib/metrics';
+import { countdown, daysOffByMonth, monthlyBudget, todayISO } from '@/lib/metrics';
 import { SUGGESTED_QUESTIONS } from '@/lib/assistant';
 import { track } from '@/lib/analytics';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
-
-const TODAY = '2026-07-15';
 
 // A couple of genuinely useful, engine-answerable prompts to surface as a nudge.
 const NUDGE_QUESTIONS = [
@@ -46,9 +44,10 @@ export function Dashboard({ onAsk }: { onAsk?: (q: string) => void } = {}) {
   const colors = useThemeColors();
   const plan = result.plans.find((p) => p.id === selectedPlanId) ?? result.plans[0];
 
+  const today = todayISO();
   const budgetSeries = React.useMemo(() => monthlyBudget(input, plan), [input, plan]);
   const offSeries = React.useMemo(() => daysOffByMonth(plan), [plan]);
-  const cd = React.useMemo(() => countdown(plan, TODAY), [plan]);
+  const cd = React.useMemo(() => countdown(plan, today), [plan, today]);
 
   const used = plan.totalLeaveUsed;
   const reserve = input.leave.reserveDays;

@@ -53,8 +53,16 @@ export interface Countdown {
   next?: Plan['breaks'][number];
 }
 
-/** Days until the next break that starts after `today` (ISO). */
-export function countdown(plan: Plan, today: string): Countdown {
+/** The current local date as an ISO `YYYY-MM-DD` string. `now` is injectable for tests. */
+export function todayISO(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Days until the next break that starts after `today` (ISO), defaulting to today. */
+export function countdown(plan: Plan, today: string = todayISO()): Countdown {
   const upcoming = plan.breaks
     .filter((b) => b.start > today)
     .sort((a, b) => (a.start < b.start ? -1 : 1));
