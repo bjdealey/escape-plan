@@ -27,6 +27,20 @@ import { track } from '@/lib/analytics';
 
 const TAB_KEY = 'escape-plan-tab';
 
+// The "Viewing as" switcher stands in for real IdP login and is dev-only — the
+// x-user-id it maps to is ignored under a real auth provider / in production.
+// Hidden by default in production builds; a public demo can opt back in with
+// VITE_SHOW_USER_SWITCHER=true. (import.meta.env is untyped here — cast as in
+// lib/analytics.ts.)
+const SHOW_USER_SWITCHER = (() => {
+  try {
+    const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
+    return env?.DEV === true || env?.VITE_SHOW_USER_SWITCHER === 'true';
+  } catch {
+    return false;
+  }
+})();
+
 export default function App() {
   const { onboarded, aiEnabled, setAiEnabled, result, selectedPlanId } = usePlanner();
   const groups = useGroups();
@@ -39,6 +53,8 @@ export default function App() {
     }
   });
 
+  const [assistantSeed, setAssistantSeed] = React.useState<string | null>(null);
+
   // Persist the active tab so a return visit reopens where the user left off,
   // and record tab views so section engagement can be measured.
   const changeTab = React.useCallback((t: string) => {
@@ -50,6 +66,15 @@ export default function App() {
     }
     track('tab_viewed', { tab: t });
   }, []);
+
+  // A dashboard nudge stages a question, then opens the Assistant to ask it.
+  const askAssistant = React.useCallback(
+    (q: string) => {
+      setAssistantSeed(q);
+      changeTab('assistant');
+    },
+    [changeTab],
+  );
 
   if (!onboarded) return <Onboarding />;
 
@@ -76,23 +101,25 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="hidden items-center gap-2 sm:flex">
-              <Label htmlFor="act-as" className="text-xs text-muted-foreground">
-                Viewing as
-              </Label>
-              <Select value={String(groups.currentUser.id)} onValueChange={(v) => groups.actAs(Number(v))}>
-                <SelectTrigger id="act-as" className="h-9 w-40" aria-label="Act as user (dev)">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.users.map((u) => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {SHOW_USER_SWITCHER ? (
+              <div className="hidden items-center gap-2 sm:flex">
+                <Label htmlFor="act-as" className="text-xs text-muted-foreground">
+                  Viewing as
+                </Label>
+                <Select value={String(groups.currentUser.id)} onValueChange={(v) => groups.actAs(Number(v))}>
+                  <SelectTrigger id="act-as" className="h-9 w-40" aria-label="Act as user (dev)">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.users.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="hidden items-center gap-2 sm:flex">
               <Bot className="h-4 w-4 text-muted-foreground" aria-hidden />
               <Label htmlFor="ai-toggle" className="text-xs text-muted-foreground">
@@ -157,7 +184,7 @@ export default function App() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <Dashboard />
+            <Dashboard onAsk={askAssistant} />
           </TabsContent>
           <TabsContent value="calendar">
             <CalendarView />
@@ -166,7 +193,10 @@ export default function App() {
             <PlansView onNavigate={changeTab} />
           </TabsContent>
           <TabsContent value="assistant">
-            <AiPlanner />
+            <AiPlanner
+              seedQuestion={assistantSeed}
+              onSeedConsumed={() => setAssistantSeed(null)}
+            />
           </TabsContent>
           <TabsContent value="group">
             <GroupView />

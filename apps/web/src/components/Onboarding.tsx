@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowLeft, ArrowRight, Check, Compass, MapPin, Plane } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Compass, MapPin, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ export function Onboarding() {
     setOnboarded,
   } = usePlanner();
   const [step, setStep] = React.useState(0);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
   const { leave, budget, preferences } = input;
 
   const detectionSource =
@@ -94,44 +95,73 @@ export function Onboarding() {
         </CardHeader>
         <CardContent className="space-y-6">
           {step === 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Total allowance (days)">
-                <Input
-                  type="number"
-                  value={leave.allowance}
-                  min={0}
-                  max={60}
-                  onChange={(e) => updateLeave({ allowance: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Days remaining">
-                <Input
-                  type="number"
-                  value={leave.remaining}
-                  min={0}
-                  max={60}
-                  onChange={(e) => updateLeave({ remaining: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Reserve for emergencies">
-                <Input
-                  type="number"
-                  value={leave.reserveDays}
-                  min={0}
-                  max={leave.remaining}
-                  onChange={(e) => updateLeave({ reserveDays: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Carry-over days">
-                <Input
-                  type="number"
-                  value={leave.carryOver}
-                  min={0}
-                  max={30}
-                  onChange={(e) => updateLeave({ carryOver: Number(e.target.value) })}
-                />
-              </Field>
-              <p className="col-span-2 text-xs text-muted-foreground">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Total allowance (days)">
+                  <Input
+                    type="number"
+                    value={leave.allowance}
+                    min={0}
+                    max={60}
+                    onChange={(e) => updateLeave({ allowance: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="Days remaining">
+                  <Input
+                    type="number"
+                    value={leave.remaining}
+                    min={0}
+                    max={60}
+                    onChange={(e) => updateLeave({ remaining: Number(e.target.value) })}
+                  />
+                </Field>
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  aria-expanded={showAdvanced}
+                  aria-controls="advanced-leave"
+                  className="flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                    aria-hidden
+                  />
+                  Advanced — emergency reserve &amp; carry-over
+                </button>
+
+                {showAdvanced ? (
+                  <div id="advanced-leave" className="mt-3 grid grid-cols-2 gap-4">
+                    <Field label="Reserve for emergencies">
+                      <Input
+                        type="number"
+                        value={leave.reserveDays}
+                        min={0}
+                        max={leave.remaining}
+                        onChange={(e) => updateLeave({ reserveDays: Number(e.target.value) })}
+                      />
+                    </Field>
+                    <Field label="Carry-over days">
+                      <Input
+                        type="number"
+                        value={leave.carryOver}
+                        min={0}
+                        max={30}
+                        onChange={(e) => updateLeave({ carryOver: Number(e.target.value) })}
+                      />
+                    </Field>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Keeping {leave.reserveDays} day{leave.reserveDays === 1 ? '' : 's'} in reserve and{' '}
+                    {leave.carryOver} carried over — expand to change.
+                  </p>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
                 UK 2026 bank holidays and a December company shutdown are already loaded.
               </p>
             </div>

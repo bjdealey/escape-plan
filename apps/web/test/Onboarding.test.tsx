@@ -42,4 +42,22 @@ describe('Onboarding', () => {
     await user.type(remaining, '18');
     expect(remaining.value).toBe('18');
   });
+
+  it('hides advanced leave fields behind a reveal without changing defaults', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Onboarding />);
+
+    // Primary fields are visible; advanced ones are collapsed by default.
+    expect(screen.getByLabelText(/Total allowance/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Reserve for emergencies/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Carry-over days/i)).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: /advanced/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(/Reserve for emergencies/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Carry-over days/i)).toBeInTheDocument();
+  });
 });

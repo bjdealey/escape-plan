@@ -24,15 +24,24 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Bot } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { usePlanner } from '@/store/planner';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { countdown, daysOffByMonth, monthlyBudget } from '@/lib/metrics';
+import { SUGGESTED_QUESTIONS } from '@/lib/assistant';
+import { track } from '@/lib/analytics';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 
 const TODAY = '2026-07-15';
 
-export function Dashboard() {
+// A couple of genuinely useful, engine-answerable prompts to surface as a nudge.
+const NUDGE_QUESTIONS = [
+  SUGGESTED_QUESTIONS.find((s) => /extra leave/i.test(s.q))?.q ?? SUGGESTED_QUESTIONS[0].q,
+  SUGGESTED_QUESTIONS.find((s) => /cheaper/i.test(s.q))?.q ?? SUGGESTED_QUESTIONS[1].q,
+];
+
+export function Dashboard({ onAsk }: { onAsk?: (q: string) => void } = {}) {
   const { input, result, selectedPlanId } = usePlanner();
   const colors = useThemeColors();
   const plan = result.plans.find((p) => p.id === selectedPlanId) ?? result.plans[0];
@@ -120,6 +129,28 @@ export function Dashboard() {
           icon={<Sun />}
         />
       </div>
+
+      {onAsk ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-primary/5 px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <Bot className="h-4 w-4 text-primary" aria-hidden />
+            Curious? Ask the assistant:
+          </span>
+          {NUDGE_QUESTIONS.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => {
+                track('assistant_nudge_clicked', { question: q });
+                onAsk(q);
+              }}
+              className="rounded-full border border-primary/30 bg-card px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card glass>

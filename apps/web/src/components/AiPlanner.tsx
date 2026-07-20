@@ -12,7 +12,14 @@ interface Message {
   text: string;
 }
 
-export function AiPlanner() {
+export function AiPlanner({
+  seedQuestion,
+  onSeedConsumed,
+}: {
+  /** A question handed in from elsewhere (e.g. a dashboard nudge) to ask on open. */
+  seedQuestion?: string | null;
+  onSeedConsumed?: () => void;
+} = {}) {
   const { input, result, aiEnabled } = usePlanner();
   const [messages, setMessages] = React.useState<Message[]>([
     {
@@ -28,6 +35,22 @@ export function AiPlanner() {
     setMessages((m) => [...m, { role: 'user', text: q }, { role: 'assistant', text: reply }]);
     setDraft('');
   };
+
+  // If we arrived here from a nudge, ask the staged question once and clear it.
+  // The ref makes this idempotent under StrictMode's double-invoked effects,
+  // while resetting on a falsy seed so the same question can be asked again later.
+  const askedSeed = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!seedQuestion) {
+      askedSeed.current = null;
+      return;
+    }
+    if (askedSeed.current === seedQuestion) return;
+    askedSeed.current = seedQuestion;
+    ask(seedQuestion);
+    onSeedConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedQuestion]);
 
   return (
     <Card glass className="animate-fade-in">

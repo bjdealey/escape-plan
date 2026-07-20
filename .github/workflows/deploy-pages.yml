@@ -31,6 +31,9 @@ jobs:
         env:
           # Served from https://<user>.github.io/escape-plan/
           VITE_BASE: /escape-plan/
+          # Public demo: keep the "Viewing as" switcher so visitors can explore
+          # the multi-user (household + team) features as different seeded users.
+          VITE_SHOW_USER_SWITCHER: 'true'
         run: npm run build:web
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
