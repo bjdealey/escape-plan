@@ -41,7 +41,7 @@ const SEASONS: Season[] = ['spring', 'summer', 'autumn', 'winter'];
 const CURRENCIES = SUPPORTED_CURRENCIES;
 
 export function PreferencesPanel() {
-  const { input, updateWeights, updateLeave, updateBudget, updatePreferences, toggleTripType, reset } =
+  const { input, updateWeights, updateLeave, updateBudget, updatePreferences, toggleTripType, setCurrency, reset } =
     usePlanner();
   const { preferences, leave, budget } = input;
 
@@ -171,7 +171,7 @@ export function PreferencesPanel() {
               </Label>
               <Select
                 value={budget.currency}
-                onValueChange={(v) => updateBudget({ currency: v })}
+                onValueChange={(v) => setCurrency(v)}
               >
                 <SelectTrigger id="currency">
                   <SelectValue />

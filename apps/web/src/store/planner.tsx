@@ -8,9 +8,12 @@ import {
   type Preferences,
   type TripType,
   type Weights,
+  DEMO_DESTINATIONS,
   currencyForCountry,
   demoInput,
   homeProfileForCountry,
+  localiseBudget,
+  localiseDestinations,
   optimise,
 } from '@escape-plan/engine';
 import { DEMO_COLLEAGUES, DEMO_TEAM, type ColleagueLeave } from '@escape-plan/engine';
@@ -35,6 +38,8 @@ interface PlannerContextValue {
   /** The home country currently driving currency + local (staycation) weather. */
   homeCountry: string;
   setHomeCountry: (countryCode: string) => void;
+  /** Change the plan currency, converting all amounts (not just the symbol). */
+  setCurrency: (currency: string) => void;
   setSelectedPlanId: (id: string) => void;
   setOnboarded: (v: boolean) => void;
   setAiEnabled: (v: boolean) => void;
@@ -55,19 +60,38 @@ function withHome(input: EngineInput, countryCode = detected.countryCode): Engin
   return input.home ? input : { ...input, home: homeProfileForCountry(countryCode) };
 }
 
+/**
+ * Re-denominate an input into `toCurrency`. Budget amounts convert from their
+ * current currency (preserving user edits); destination costs are re-derived
+ * from the canonical GBP fixtures so the numbers can never drift or compound.
+ */
+function applyCurrency(input: EngineInput, toCurrency: string): EngineInput {
+  return {
+    ...input,
+    budget: localiseBudget(input.budget, toCurrency),
+    destinations: localiseDestinations(DEMO_DESTINATIONS, 'GBP', toCurrency),
+  };
+}
+
 function loadInput(): { input: EngineInput; fresh: boolean } {
   try {
     const raw = localStorage.getItem(INPUT_KEY);
-    if (raw) return { input: withHome(JSON.parse(raw) as EngineInput), fresh: false };
+    if (raw) {
+      const parsed = withHome(JSON.parse(raw) as EngineInput);
+      // Self-heal: re-derive destination costs from canonical GBP fixtures in
+      // case they were stored before currency conversion existed.
+      return {
+        input: { ...parsed, destinations: localiseDestinations(DEMO_DESTINATIONS, 'GBP', parsed.budget.currency) },
+        fresh: false,
+      };
+    }
   } catch {
     /* ignore */
   }
-  // Fresh user: pre-fill the detected currency + home so staycation weather works.
+  // Fresh user: convert the demo (GBP) input into the detected currency so
+  // budget and destination costs are real amounts, not relabelled GBP.
   return {
-    input: {
-      ...withHome(demoInput()),
-      budget: { ...demoInput().budget, currency: detected.currency },
-    },
+    input: applyCurrency(withHome(demoInput()), detected.currency),
     fresh: true,
   };
 }
@@ -121,11 +145,10 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setInput((prev) => {
         if (prev.budget.currency !== detected.currency) return prev; // user changed it
         if (prev.home?.countryCode === loc.countryCode) return prev;
-        return {
-          ...prev,
-          home: homeProfileForCountry(loc.countryCode),
-          budget: { ...prev.budget, currency: loc.currency },
-        };
+        return applyCurrency(
+          { ...prev, home: homeProfileForCountry(loc.countryCode) },
+          loc.currency,
+        );
       });
     });
     return () => {
@@ -154,11 +177,13 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       detectedLocation: detected,
       homeCountry: input.home?.countryCode ?? detected.countryCode,
       setHomeCountry: (countryCode) =>
-        setInput((prev) => ({
-          ...prev,
-          home: homeProfileForCountry(countryCode),
-          budget: { ...prev.budget, currency: currencyForCountry(countryCode) },
-        })),
+        setInput((prev) =>
+          applyCurrency(
+            { ...prev, home: homeProfileForCountry(countryCode) },
+            currencyForCountry(countryCode),
+          ),
+        ),
+      setCurrency: (currency) => setInput((prev) => applyCurrency(prev, currency)),
       setSelectedPlanId,
       setOnboarded,
       setAiEnabled,
@@ -193,10 +218,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       reset: () => {
-        setInput({
-          ...withHome(demoInput()),
-          budget: { ...demoInput().budget, currency: detected.currency },
-        });
+        setInput(applyCurrency(withHome(demoInput()), detected.currency));
         setOnboarded(false);
         setSelectedPlanId(DEFAULT_PLAN_ID);
       },
