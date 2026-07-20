@@ -1,4 +1,4 @@
-import { RotateCcw } from 'lucide-react';
+import { CalendarHeart, Plus, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePlanner } from '@/store/planner';
-import { SUPPORTED_CURRENCIES, type Season, type TripType, type Weights } from '@escape-plan/engine';
+import {
+  OCCASION_KINDS,
+  OCCASION_LABELS,
+  SUPPORTED_CURRENCIES,
+  type OccasionKind,
+  type PersonalDate,
+  type Season,
+  type TripType,
+  type Weights,
+} from '@escape-plan/engine';
 
 const WEIGHT_LABELS: { key: keyof Weights; label: string; hint: string }[] = [
   { key: 'maximiseConsecutive', label: 'Maximise consecutive days off', hint: 'Longer single breaks' },
@@ -56,6 +65,18 @@ export function PreferencesPanel() {
     updatePreferences({
       avoidCountries: avoid.includes(code) ? avoid.filter((c) => c !== code) : [...avoid, code],
     });
+
+  // "Book time off for anything" — manage the personal dates the planner uses.
+  const occasions = preferences.personalDates;
+  const setOccasions = (next: PersonalDate[]) => updatePreferences({ personalDates: next });
+  const updateOccasion = (i: number, patch: Partial<PersonalDate>) =>
+    setOccasions(occasions.map((o, idx) => (idx === i ? { ...o, ...patch } : o)));
+  const addOccasion = () =>
+    setOccasions([
+      ...occasions,
+      { date: `${input.year}-06-15`, label: 'New occasion', kind: 'event', bookAround: true, daysAround: 3 },
+    ]);
+  const removeOccasion = (i: number) => setOccasions(occasions.filter((_, idx) => idx !== i));
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 animate-fade-in">
@@ -345,6 +366,106 @@ export function PreferencesPanel() {
               })}
             </div>
           </fieldset>
+        </CardContent>
+      </Card>
+
+      <Card glass className="lg:col-span-2">
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarHeart className="h-4 w-4 text-primary" /> Time off for anything
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Weddings, birthdays, moving house, appointments, a rest day — flag any date and the
+              planner books time off around it (no trip suggested).
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={addOccasion} className="gap-1.5">
+            <Plus className="h-4 w-4" /> Add
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {occasions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No occasions yet — add one above.</p>
+          ) : (
+            occasions.map((o, i) => (
+              <div
+                key={i}
+                className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
+              >
+                <div className="min-w-[9rem] flex-1">
+                  <Label htmlFor={`occ-label-${i}`} className="mb-1 block text-xs">
+                    What for
+                  </Label>
+                  <Input
+                    id={`occ-label-${i}`}
+                    value={o.label}
+                    onChange={(e) => updateOccasion(i, { label: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`occ-date-${i}`} className="mb-1 block text-xs">
+                    Date
+                  </Label>
+                  <Input
+                    id={`occ-date-${i}`}
+                    type="date"
+                    value={o.date}
+                    onChange={(e) => updateOccasion(i, { date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1 block text-xs">Type</Label>
+                  <Select
+                    value={o.kind}
+                    onValueChange={(v) => updateOccasion(i, { kind: v as OccasionKind })}
+                  >
+                    <SelectTrigger className="h-10 w-40" aria-label={`Type for ${o.label}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OCCASION_KINDS.map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {OCCASION_LABELS[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <label className="flex items-center gap-2 pb-2 text-sm">
+                  <Switch
+                    checked={o.bookAround ?? false}
+                    onCheckedChange={(v) => updateOccasion(i, { bookAround: v })}
+                    aria-label={`Book time off around ${o.label}`}
+                  />
+                  Book time off
+                </label>
+                {o.bookAround ? (
+                  <div className="w-20">
+                    <Label htmlFor={`occ-days-${i}`} className="mb-1 block text-xs">
+                      Days
+                    </Label>
+                    <Input
+                      id={`occ-days-${i}`}
+                      type="number"
+                      min={1}
+                      max={14}
+                      value={o.daysAround ?? 3}
+                      onChange={(e) => updateOccasion(i, { daysAround: Number(e.target.value) })}
+                    />
+                  </div>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeOccasion(i)}
+                  aria-label={`Remove ${o.label}`}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

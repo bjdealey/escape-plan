@@ -1,7 +1,8 @@
 import { buildCalendar, computeBreaks, generateCandidates } from './calendar.js';
 import type { CandidateBreak, DayInfo } from './calendar.js';
 import { suggestDestination, weatherSummaryFromClimate } from './destinations.js';
-import { ISODate, dateRange, monthOf, seasonOf } from './dateutil.js';
+import { ISODate, addDays, dateRange, daysBetween, monthOf, seasonOf } from './dateutil.js';
+import { purposeForKind } from './occasions.js';
 import { explainPlan, scorePlan, summariseBreaks } from './scoring.js';
 import { colleaguesOffOn } from './groups.js';
 import type { Break, EngineInput, EngineResult, Plan, Weights } from './types.js';
@@ -132,6 +133,7 @@ function candidateToBreak(c: CandidateBreak, input: EngineInput): Break {
     // Staycation (no trip) → show the user's local weather when home is known.
     homeWeather:
       !dest && input.home ? weatherSummaryFromClimate(input.home.climate, c.month) : undefined,
+    purpose: dest ? 'getaway' : input.home ? 'staycation' : 'rest',
   };
 }
 
@@ -144,6 +146,8 @@ function toStaycation(brk: Break, input: EngineInput): Break {
     homeWeather: input.home
       ? weatherSummaryFromClimate(input.home.climate, brk.month)
       : brk.homeWeather,
+    // Keep an explicit non-travel purpose (e.g. anchored breaks stay 'event').
+    purpose: brk.purpose && brk.purpose !== 'getaway' ? brk.purpose : 'staycation',
   };
 }
 
@@ -178,6 +182,112 @@ function forcedBreaks(
   });
   const leaveUsed = breaks.reduce((s, b) => s + b.leaveDaysUsed, 0);
   return { breaks, occupied, leaveUsed };
+}
+
+/**
+ * Find the cheapest `target`-day window that contains `anchor` — i.e. the fewest
+ * leave days needed to take a break around a date the user cares about, using
+ * nearby weekends/holidays where possible. Windows crossing a blackout are
+ * rejected. Returns the window expanded to its full contiguous days-off run.
+ */
+function cheapestWindowContaining(
+  calendar: Map<ISODate, DayInfo>,
+  anchor: ISODate,
+  target: number,
+  year: number,
+): { start: ISODate; end: ISODate; leaveDates: ISODate[] } | undefined {
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  let best: { start: ISODate; end: ISODate; leaveDates: ISODate[] } | undefined;
+  for (let offset = 0; offset < target; offset++) {
+    const start = addDays(anchor, -offset);
+    const end = addDays(start, target - 1);
+    if (start < yearStart || end > yearEnd) continue;
+    const days = dateRange(start, end);
+    const blocked = days.some((d) => {
+      const info = calendar.get(d);
+      return info && !info.naturallyOff && !info.bookable; // blackout working day
+    });
+    if (blocked) continue;
+    const leaveDates = days.filter((d) => calendar.get(d)?.bookable);
+    if (leaveDates.length === 0) continue; // already off — nothing to book
+    if (
+      !best ||
+      leaveDates.length < best.leaveDates.length ||
+      (leaveDates.length === best.leaveDates.length && start < best.start)
+    ) {
+      best = { start, end, leaveDates };
+    }
+  }
+  if (!best) return undefined;
+  const leaveSet = new Set(best.leaveDates);
+  const isOff = (d: ISODate) => {
+    const info = calendar.get(d);
+    return Boolean(info && (info.naturallyOff || leaveSet.has(d)));
+  };
+  let s = best.start;
+  while (calendar.has(addDays(s, -1)) && isOff(addDays(s, -1))) s = addDays(s, -1);
+  let e = best.end;
+  while (calendar.has(addDays(e, 1)) && isOff(addDays(e, 1))) e = addDays(e, 1);
+  return { start: s, end: e, leaveDates: best.leaveDates };
+}
+
+/**
+ * Build forced breaks anchored around personal dates flagged `bookAround`
+ * (weddings, birthdays, moving day, etc.). These are non-travel by design and
+ * respect the emergency reserve — anchors that don't fit are skipped.
+ */
+function anchoredBreaks(
+  calendar: Map<ISODate, DayInfo>,
+  input: EngineInput,
+  occupied: Set<ISODate>,
+  leaveUsedStart: number,
+  bookableLeave: number,
+): { breaks: Break[]; leaveUsed: number } {
+  const breaks: Break[] = [];
+  let leaveUsed = leaveUsedStart;
+  const anchors = input.preferences.personalDates
+    .filter((p) => p.bookAround && calendar.has(p.date))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  for (const anchor of anchors) {
+    const target = Math.max(
+      1,
+      anchor.daysAround ?? Math.min(4, input.preferences.preferredTripLength),
+    );
+    const win = cheapestWindowContaining(calendar, anchor.date, target, input.year);
+    if (!win) continue;
+    if (win.leaveDates.some((d) => occupied.has(d))) continue; // overlaps another break
+    if (leaveUsed + win.leaveDates.length > bookableLeave) continue; // honour the reserve
+    if (violatesCapacity(win.leaveDates, input)) continue; // honour max-colleagues-off
+
+    const span = dateRange(win.start, win.end);
+    const bridged = span
+      .map((d) => calendar.get(d)?.holidayName)
+      .filter((n): n is string => Boolean(n));
+    const brk: Break = {
+      start: win.start,
+      end: win.end,
+      leaveDatesUsed: win.leaveDates,
+      leaveDaysUsed: win.leaveDates.length,
+      totalDaysOff: daysBetween(win.start, win.end),
+      bridgedHolidays: Array.from(new Set(bridged)),
+      month: monthOf(win.start),
+      season: seasonOf(win.start),
+      suggestion: undefined, // anchored to a commitment — not a trip
+      estimatedCost: 0,
+      colleagueOverlapDays: overlapDays(win.leaveDates, input),
+      homeWeather: input.home
+        ? weatherSummaryFromClimate(input.home.climate, monthOf(win.start))
+        : undefined,
+      purpose: purposeForKind(anchor.kind),
+      anchorLabel: anchor.label,
+    };
+    markOccupied(occupied, brk.start, brk.end);
+    leaveUsed += brk.leaveDaysUsed;
+    breaks.push(brk);
+  }
+  return { breaks, leaveUsed };
 }
 
 function selectForStrategy(
@@ -277,7 +387,21 @@ export function optimise(input: EngineInput): EngineResult {
   const availableLeave = input.leave.remaining;
   const bookableLeave = Math.max(0, availableLeave - input.leave.reserveDays);
   const candidates = generateCandidates(calendar, input);
-  const base = forcedBreaks(calendar, input);
+  const forced = forcedBreaks(calendar, input);
+  // Anchored breaks (birthdays, weddings, moving day…) join the forced base so
+  // every plan honours them; `forced.occupied` is extended in place.
+  const anchored = anchoredBreaks(
+    calendar,
+    input,
+    forced.occupied,
+    forced.leaveUsed,
+    bookableLeave,
+  );
+  const base = {
+    breaks: [...forced.breaks, ...anchored.breaks],
+    occupied: forced.occupied,
+    leaveUsed: anchored.leaveUsed,
+  };
   const strategies = buildStrategies(input);
 
   const plans: Plan[] = [];

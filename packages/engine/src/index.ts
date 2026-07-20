@@ -25,4 +25,5 @@ export { weatherSummaryFromClimate } from './destinations.js';
 export * from './groups.js';
 export * from './notifications.js';
 export * from './location.js';
+export * from './occasions.js';
 export * from './fixtures.js';

@@ -259,6 +259,19 @@ export const DEFAULT_PREFERENCES: Preferences = {
   ],
 };
 
+/**
+ * Demo preferences showcase the "book time off for any reason" feature: some
+ * personal dates are flagged `bookAround`, including a non-travel life-admin day.
+ */
+export const DEMO_PREFERENCES: Preferences = {
+  ...DEFAULT_PREFERENCES,
+  personalDates: [
+    { date: '2026-06-14', label: 'Anniversary', kind: 'anniversary', bookAround: true, daysAround: 4 },
+    { date: '2026-09-02', label: 'Birthday', kind: 'birthday' },
+    { date: '2026-10-16', label: 'House move', kind: 'moving', bookAround: true, daysAround: 2 },
+  ],
+};
+
 export const DEFAULT_LEAVE: LeaveConfig = {
   allowance: 28,
   remaining: 25,
@@ -470,7 +483,7 @@ export function demoInput(overrides: Partial<EngineInput> = {}): EngineInput {
       { start: '2026-02-14', end: '2026-02-22', label: 'February half-term' },
     ],
     weekendDays: [0, 6],
-    preferences: DEFAULT_PREFERENCES,
+    preferences: DEMO_PREFERENCES,
     budget: DEFAULT_BUDGET,
     destinations: DEMO_DESTINATIONS,
     planCount: 5,

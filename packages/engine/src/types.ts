@@ -31,12 +31,38 @@ export interface DateRangeSpec {
   label?: string;
 }
 
-/** A named personal date the user wants to protect or celebrate. */
+/**
+ * Why someone might book time off — beyond travel. Drives how a break is
+ * described and whether the engine suggests a destination for it.
+ */
+export type OccasionKind =
+  | 'birthday'
+  | 'anniversary'
+  | 'wedding'
+  | 'festival'
+  | 'concert'
+  | 'sport'
+  | 'event'
+  | 'family'
+  | 'medical'
+  | 'admin'
+  | 'moving'
+  | 'study'
+  | 'rest';
+
+/** A named personal date the user wants to protect, celebrate, or book off. */
 export interface PersonalDate {
   date: ISODate;
   label: string;
-  kind: 'birthday' | 'anniversary' | 'festival' | 'sport' | 'concert' | 'event';
+  kind: OccasionKind;
+  /** When true, the engine builds a break anchored around this date. */
+  bookAround?: boolean;
+  /** Preferred length (calendar days off) of that anchored break. */
+  daysAround?: number;
 }
+
+/** The reason a break exists — a trip, a staycation, or a non-travel commitment. */
+export type BreakPurpose = 'getaway' | 'staycation' | 'event' | 'family' | 'admin' | 'rest';
 
 export interface LeaveConfig {
   /** Total statutory allowance in days. */
@@ -200,6 +226,10 @@ export interface Break {
   colleagueOverlapDays?: number;
   /** Local weather for a staycation break (present only when no trip suggested). */
   homeWeather?: WeatherSummary;
+  /** Why this break exists (trip, staycation, or a non-travel commitment). */
+  purpose?: BreakPurpose;
+  /** Label of the personal date this break is anchored around, if any. */
+  anchorLabel?: string;
 }
 
 export interface ScoreBreakdown {

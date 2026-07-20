@@ -464,3 +464,34 @@ chips); plan chips now show the matched trip type, e.g. "Cornwall (beach)".
 Coverage: engine 80 (+6 travel-filter tests), web 37 (+2 travel-prefs UI).
 Verified in-browser: setting *Domestic only* switched every suggestion to UK
 destinations (Cornwall/Edinburgh) — Barcelona no longer appears; no console errors.
+
+---
+
+# Phase 7 — Book time off for any reason (purpose + event anchoring)
+
+The planner treated every break as an implied trip. Now leave has a **purpose**
+and can be **anchored to real-life dates** — making it an all-encompassing
+planner, not just a holiday tool.
+
+- **`Break.purpose`** (`getaway | staycation | event | family | admin | rest`):
+  trips are `getaway`, no-travel breaks are `staycation`, and anchored breaks
+  take their purpose from the occasion kind. Non-travel breaks get **no
+  destination suggestion**.
+- **`PersonalDate` extended** with `bookAround` + `daysAround` and a broader
+  `kind` set (wedding, family, medical, admin, moving, study, rest, …). When
+  `bookAround` is set, the optimiser builds a **forced break anchored around the
+  date** using the cheapest window that contains it (bridging nearby
+  weekends/holidays). Anchored breaks honour the **emergency reserve** and the
+  **max-colleagues-off** cap — they're skipped, never overspent.
+- Plans **explain** anchored time off ("…also books time off around Anniversary,
+  House move"); plan chips + the calendar label them (e.g. "House move (Life
+  admin)").
+- New optional fields ⇒ `DEFAULT_PREFERENCES`/`baseInput` and all prior tests
+  are unchanged. `demoInput` opts a couple of dates in (an anniversary + a house
+  move) to showcase it.
+- UI: a **"Time off for anything"** editor in Preferences (add/remove occasions,
+  set type, toggle "book time off", choose days).
+
+Coverage: engine 86 (+6 anchoring/purpose), web 40 (+3 occasions UI + anchored
+plan chips). Verified in-browser: the demo plan books "Anniversary (Occasion)"
+and "House move (Life admin)" as non-travel breaks; no console errors.

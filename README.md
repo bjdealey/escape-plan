@@ -164,6 +164,16 @@ An optional server IP-geolocation adapter (**ipwho.is**, keyless,
 `LOCATION_PROVIDER=ipwho`, mock GB by default) refines the guess when the API is
 reachable; otherwise the locale heuristic stands alone.
 
+### Book time off for any reason
+
+Leave isn't only for holidays. Each break has a **purpose** — a getaway, a
+staycation, or a non-travel commitment (`event`, `family`, `admin`, `rest`) — and
+non-travel breaks get no destination suggestion. In **Preferences → "Time off for
+anything"** you can flag any date (a wedding, moving house, an appointment, a rest
+day) and the engine **anchors a break around it** using the cheapest window that
+still bridges nearby weekends/holidays, honouring your emergency reserve and the
+team's max-off cap. Plans explain and label these ("House move (Life admin)").
+
 ### Notifications
 
 Multi-user events (invites, approval requests/decisions, shared plans, reminders)
@@ -234,7 +244,7 @@ Reproduce the checks locally:
 ```bash
 npm install          # ✅ succeeds; builds the engine
 npm run typecheck    # ✅ zero TypeScript errors across all packages
-npm test             # ✅ 170 tests pass (engine 74 · server 61 +4 db-gated · web 35)
+npm test             # ✅ 187 tests pass (engine 86 · server 61 +4 db-gated · web 40)
 npm run build        # ✅ engine + web + server build
 npm run test:e2e     # ✅ Playwright: solo + multi-user journeys (needs `npx playwright install chromium`)
 npm run dev          # ✅ dev server starts on :5173

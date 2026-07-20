@@ -135,8 +135,11 @@ export function buildCalendarEvents(
         ? ` · ${formatCurrency(brk.estimatedCost, input.budget.currency)}`
         : ' · staycation';
       const dest = brk.suggestion ? ` → ${brk.suggestion.destinationName}` : '';
+      const title = brk.anchorLabel
+        ? `${brk.totalDaysOff} days off · ${brk.anchorLabel}`
+        : `${brk.totalDaysOff} days off${dest}${weather}${cost}`;
       events.push({
-        title: `${brk.totalDaysOff} days off${dest}${weather}${cost}`,
+        title,
         start: brk.start,
         end: addDays(brk.end, 1),
         allDay: true,

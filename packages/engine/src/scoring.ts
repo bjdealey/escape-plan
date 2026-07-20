@@ -164,6 +164,14 @@ export function explainPlan(plan: Omit<Plan, 'explanation' | 'tradeoffs'>, input
       `Suggested destinations include ${dests.join(', ')}, all within your per-trip budget.`,
     );
   }
+  const anchored = Array.from(
+    new Set(plan.breaks.filter((b) => b.anchorLabel).map((b) => b.anchorLabel!)),
+  );
+  if (anchored.length > 0) {
+    parts.push(
+      `It also books time off around ${anchored.slice(0, 3).join(', ')}${anchored.length > 3 ? ` and ${anchored.length - 3} more` : ''}.`,
+    );
+  }
 
   const tradeoffs: string[] = [];
   if (plan.totalLeaveUsed < bookable) {

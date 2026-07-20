@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { PURPOSE_LABELS } from '@escape-plan/engine';
 import { usePlanner } from '@/store/planner';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import type { Plan } from '@escape-plan/engine';
@@ -146,11 +147,13 @@ function PlanCard({
               </span>
               <span className="text-muted-foreground">
                 {b.totalDaysOff}d · {b.leaveDaysUsed} leave
-                {b.suggestion
-                  ? ` · ${b.suggestion.destinationName} (${b.suggestion.tripType.replace('-', ' ')})`
-                  : b.homeWeather
-                    ? ` · staycation · ${Math.round(b.homeWeather.avgTempC)}°C home`
-                    : ' · staycation'}
+                {b.anchorLabel
+                  ? ` · ${b.anchorLabel} (${PURPOSE_LABELS[b.purpose ?? 'event']})`
+                  : b.suggestion
+                    ? ` · ${b.suggestion.destinationName} (${b.suggestion.tripType.replace('-', ' ')})`
+                    : b.homeWeather
+                      ? ` · staycation · ${Math.round(b.homeWeather.avgTempC)}°C home`
+                      : ' · staycation'}
               </span>
             </div>
           ))}
