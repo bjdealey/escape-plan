@@ -59,7 +59,9 @@ describe('event-anchored breaks', () => {
 
   it('respects the emergency reserve (skipped rather than overspent)', () => {
     const result = optimise(
-      withAnchor(anchor, { leave: { ...demoInput().leave, remaining: 3, reserveDays: 3 } }),
+      withAnchor(anchor, {
+        leave: { ...demoInput().leave, remaining: 3, reserveDays: 3, carryOver: 0 },
+      }),
     );
     expect(result.bookableLeave).toBe(0);
     for (const plan of result.plans) {

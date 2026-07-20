@@ -93,7 +93,9 @@ export function answer(query: string, input: EngineInput, result: EngineResult):
     const n = Number(daysMatch?.[1] ?? 5);
     const boosted = optimise({
       ...input,
-      leave: { ...input.leave, remaining: input.leave.remaining + n, purchasedDays: input.leave.purchasedDays + n },
+      // purchasedDays now feeds the bookable pool directly (see leave.ts), so
+      // bump only that — bumping remaining too would double-count.
+      leave: { ...input.leave, purchasedDays: input.leave.purchasedDays + n },
     });
     const boostedBest = [...boosted.plans].sort((a, b) => b.totalDaysOff - a.totalDaysOff)[0];
     const gain = boostedBest.totalDaysOff - best.totalDaysOff;

@@ -18,6 +18,7 @@ import { track } from '@/lib/analytics';
 import {
   HOME_CLIMATES,
   SUPPORTED_CURRENCIES,
+  bookableLeaveDays,
   homeProfileForCountry,
   type Season,
   type TripType,
@@ -45,6 +46,7 @@ export function Onboarding() {
   const [step, setStep] = React.useState(0);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   const { leave, budget, preferences } = input;
+  const bookablePool = bookableLeaveDays(leave);
 
   const detectionSource =
     detectedLocation.source === 'timezone'
@@ -133,30 +135,54 @@ export function Onboarding() {
                 </button>
 
                 {showAdvanced ? (
-                  <div id="advanced-leave" className="mt-3 grid grid-cols-2 gap-4">
-                    <Field label="Reserve for emergencies">
-                      <Input
-                        type="number"
-                        value={leave.reserveDays}
-                        min={0}
-                        max={leave.remaining}
-                        onChange={(e) => updateLeave({ reserveDays: Number(e.target.value) })}
-                      />
-                    </Field>
-                    <Field label="Carry-over days">
-                      <Input
-                        type="number"
-                        value={leave.carryOver}
-                        min={0}
-                        max={30}
-                        onChange={(e) => updateLeave({ carryOver: Number(e.target.value) })}
-                      />
-                    </Field>
+                  <div id="advanced-leave" className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Reserve for emergencies">
+                        <Input
+                          type="number"
+                          value={leave.reserveDays}
+                          min={0}
+                          max={bookablePool}
+                          onChange={(e) => updateLeave({ reserveDays: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="Carry-over days">
+                        <Input
+                          type="number"
+                          value={leave.carryOver}
+                          min={0}
+                          max={30}
+                          onChange={(e) => updateLeave({ carryOver: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="Purchased days">
+                        <Input
+                          type="number"
+                          value={leave.purchasedDays}
+                          min={0}
+                          max={30}
+                          onChange={(e) => updateLeave({ purchasedDays: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="Sold-back days">
+                        <Input
+                          type="number"
+                          value={leave.soldDays}
+                          min={0}
+                          max={30}
+                          onChange={(e) => updateLeave({ soldDays: Number(e.target.value) })}
+                        />
+                      </Field>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {bookablePool} day{bookablePool === 1 ? '' : 's'} available to book after the{' '}
+                      {leave.reserveDays}-day reserve.
+                    </p>
                   </div>
                 ) : (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Keeping {leave.reserveDays} day{leave.reserveDays === 1 ? '' : 's'} in reserve and{' '}
-                    {leave.carryOver} carried over — expand to change.
+                    {bookablePool} day{bookablePool === 1 ? '' : 's'} bookable — {leave.reserveDays} in
+                    reserve, {leave.carryOver} carried over. Expand to change.
                   </p>
                 )}
               </div>

@@ -1,4 +1,5 @@
 import { clamp, monthOf } from './dateutil.js';
+import { bookableLeaveDays } from './leave.js';
 import type { Break, EngineInput, Plan, ScoreBreakdown, Weights } from './types.js';
 
 /** Reference longest-break length that maps to a perfect "time off" score. */
@@ -38,7 +39,7 @@ function isLongWeekend(b: Break): boolean {
 /** Per-criterion scores in [0,1]. */
 export function criterionScores(breaks: Break[], input: EngineInput) {
   const m = summariseBreaks(breaks);
-  const bookable = input.leave.remaining - input.leave.reserveDays;
+  const bookable = bookableLeaveDays(input.leave);
 
   const consecutive = clamp(m.longestBreak / IDEAL_LONGEST);
 
@@ -138,7 +139,7 @@ export function explainPlan(plan: Omit<Plan, 'explanation' | 'tradeoffs'>, input
   explanation: string;
   tradeoffs: string[];
 } {
-  const bookable = input.leave.remaining - input.leave.reserveDays;
+  const bookable = bookableLeaveDays(input.leave);
   const bridged = Array.from(
     new Set(plan.breaks.flatMap((b) => b.bridgedHolidays)),
   );

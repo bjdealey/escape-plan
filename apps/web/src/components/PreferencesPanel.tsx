@@ -17,6 +17,7 @@ import {
   OCCASION_KINDS,
   OCCASION_LABELS,
   SUPPORTED_CURRENCIES,
+  availableLeaveDays,
   type OccasionKind,
   type PersonalDate,
   type Season,
@@ -135,8 +136,32 @@ export function PreferencesPanel() {
               label="Reserve for emergencies"
               value={leave.reserveDays}
               min={0}
-              max={leave.remaining}
+              max={availableLeaveDays(leave)}
               onChange={(v) => updateLeave({ reserveDays: v })}
+            />
+            <NumberField
+              id="carryover"
+              label="Carry-over days"
+              value={leave.carryOver}
+              min={0}
+              max={30}
+              onChange={(v) => updateLeave({ carryOver: v })}
+            />
+            <NumberField
+              id="purchased"
+              label="Purchased days"
+              value={leave.purchasedDays}
+              min={0}
+              max={30}
+              onChange={(v) => updateLeave({ purchasedDays: v })}
+            />
+            <NumberField
+              id="sold"
+              label="Sold-back days"
+              value={leave.soldDays}
+              min={0}
+              max={30}
+              onChange={(v) => updateLeave({ soldDays: v })}
             />
             <NumberField
               id="fund"

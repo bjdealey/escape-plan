@@ -41,7 +41,10 @@ describe('POST /api/optimise', () => {
 
   it('honours a supplied reserve so no plan spends reserved days', async () => {
     const base = (await request(app).get('/api/bootstrap')).body.input;
-    const input = { ...base, leave: { ...base.leave, remaining: 10, reserveDays: 4 } };
+    const input = {
+      ...base,
+      leave: { ...base.leave, remaining: 10, reserveDays: 4, carryOver: 0, purchasedDays: 0, soldDays: 0 },
+    };
     const res = await request(app).post('/api/optimise').send(input);
     expect(res.status).toBe(200);
     expect(res.body.bookableLeave).toBe(6);
