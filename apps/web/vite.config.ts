@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // On GitHub Pages the app is served from /<repo>/; set VITE_BASE there.
+  // Local dev, preview, and other builds stay at the root.
+  base: process.env.VITE_BASE ?? '/',
   plugins: [react()],
   resolve: {
     alias: {
