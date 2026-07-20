@@ -11,6 +11,7 @@ import {
   DEMO_DESTINATIONS,
   currencyForCountry,
   demoInput,
+  holidaysForCountry,
   homeProfileForCountry,
   localiseBudget,
   localiseDestinations,
@@ -73,25 +74,44 @@ function applyCurrency(input: EngineInput, toCurrency: string): EngineInput {
   };
 }
 
+/**
+ * Re-home an input to a country: swap the local climate, the public holidays
+ * that drive bridging, and the currency (converting amounts). Holidays follow
+ * the *resolved* home country so they always match the home shown in the UI.
+ */
+function applyHome(input: EngineInput, countryCode: string): EngineInput {
+  const home = homeProfileForCountry(countryCode);
+  return {
+    ...applyCurrency(input, currencyForCountry(countryCode)),
+    home,
+    holidays: holidaysForCountry(home.countryCode),
+  };
+}
+
 function loadInput(): { input: EngineInput; fresh: boolean } {
   try {
     const raw = localStorage.getItem(INPUT_KEY);
     if (raw) {
       const parsed = withHome(JSON.parse(raw) as EngineInput);
-      // Self-heal: re-derive destination costs from canonical GBP fixtures in
-      // case they were stored before currency conversion existed.
+      // Self-heal: re-derive destination costs and holidays from the canonical
+      // per-country data in case they were stored before conversion / per-
+      // country holidays existed.
       return {
-        input: { ...parsed, destinations: localiseDestinations(DEMO_DESTINATIONS, 'GBP', parsed.budget.currency) },
+        input: {
+          ...parsed,
+          destinations: localiseDestinations(DEMO_DESTINATIONS, 'GBP', parsed.budget.currency),
+          holidays: holidaysForCountry(parsed.home?.countryCode ?? detected.countryCode),
+        },
         fresh: false,
       };
     }
   } catch {
     /* ignore */
   }
-  // Fresh user: convert the demo (GBP) input into the detected currency so
-  // budget and destination costs are real amounts, not relabelled GBP.
+  // Fresh user: home the demo input to the detected country so budget/costs are
+  // real converted amounts and the holidays match the user's country.
   return {
-    input: applyCurrency(withHome(demoInput()), detected.currency),
+    input: applyHome(demoInput(), detected.countryCode),
     fresh: true,
   };
 }
@@ -145,10 +165,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       setInput((prev) => {
         if (prev.budget.currency !== detected.currency) return prev; // user changed it
         if (prev.home?.countryCode === loc.countryCode) return prev;
-        return applyCurrency(
-          { ...prev, home: homeProfileForCountry(loc.countryCode) },
-          loc.currency,
-        );
+        return applyHome(prev, loc.countryCode);
       });
     });
     return () => {
@@ -176,13 +193,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       aiEnabled,
       detectedLocation: detected,
       homeCountry: input.home?.countryCode ?? detected.countryCode,
-      setHomeCountry: (countryCode) =>
-        setInput((prev) =>
-          applyCurrency(
-            { ...prev, home: homeProfileForCountry(countryCode) },
-            currencyForCountry(countryCode),
-          ),
-        ),
+      setHomeCountry: (countryCode) => setInput((prev) => applyHome(prev, countryCode)),
       setCurrency: (currency) => setInput((prev) => applyCurrency(prev, currency)),
       setSelectedPlanId,
       setOnboarded,
@@ -218,7 +229,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       reset: () => {
-        setInput(applyCurrency(withHome(demoInput()), detected.currency));
+        setInput(applyHome(demoInput(), detected.countryCode));
         setOnboarded(false);
         setSelectedPlanId(DEFAULT_PLAN_ID);
       },

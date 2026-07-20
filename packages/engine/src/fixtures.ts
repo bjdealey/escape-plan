@@ -9,6 +9,7 @@ import type {
   Preferences,
   Weights,
 } from './types.js';
+import { HOLIDAYS_2026 } from './holidays.js';
 import type {
   Group,
   Invite,
@@ -28,17 +29,9 @@ export const DEFAULT_WEIGHTS: Weights = {
   longWeekends: 2,
 };
 
-/** UK (England & Wales) bank holidays for 2026, from the seeded dataset. */
-export const UK_HOLIDAYS_2026: Holiday[] = [
-  { date: '2026-01-01', name: "New Year's Day", type: 'bank' },
-  { date: '2026-04-03', name: 'Good Friday', type: 'bank' },
-  { date: '2026-04-06', name: 'Easter Monday', type: 'bank' },
-  { date: '2026-05-04', name: 'Early May bank holiday', type: 'bank' },
-  { date: '2026-05-25', name: 'Spring bank holiday', type: 'bank' },
-  { date: '2026-08-31', name: 'Summer bank holiday', type: 'bank' },
-  { date: '2026-12-25', name: 'Christmas Day', type: 'bank' },
-  { date: '2026-12-28', name: 'Boxing Day (substitute)', type: 'bank' },
-];
+/** UK (England & Wales) bank holidays for 2026 — the canonical set lives in
+ * holidays.ts so per-country holiday data has a single source of truth. */
+export const UK_HOLIDAYS_2026: Holiday[] = HOLIDAYS_2026.GB;
 
 function climate(
   temps: number[],

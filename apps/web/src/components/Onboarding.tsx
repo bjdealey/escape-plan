@@ -162,7 +162,8 @@ export function Onboarding() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                UK 2026 bank holidays and a December company shutdown are already loaded.
+                {homeProfileForCountry(homeCountry).label} 2026 public holidays and a December
+                company shutdown are already loaded — set your country in step 3.
               </p>
             </div>
           )}

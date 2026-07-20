@@ -27,4 +27,5 @@ export * from './notifications.js';
 export * from './location.js';
 export * from './occasions.js';
 export * from './currency.js';
+export * from './holidays.js';
 export * from './fixtures.js';
