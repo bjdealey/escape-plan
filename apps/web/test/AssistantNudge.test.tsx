@@ -24,6 +24,20 @@ describe('Assistant nudge', () => {
     expect(screen.queryByText(/ask the assistant/i)).not.toBeInTheDocument();
   });
 
+  it('hosts the AI on/off control inside the Assistant, where its effect shows', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AiPlanner />);
+
+    // Defaults to the deterministic engine, with the toggle here (not the header).
+    const toggle = screen.getByRole('switch', { name: /Toggle AI rephrasing/ });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText(/Engine-powered answers/)).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/AI rephrasing ON/)).toBeInTheDocument();
+  });
+
   it('asks a seeded question once on open and reports it consumed', async () => {
     const onConsumed = vi.fn();
     renderWithProviders(
