@@ -1,4 +1,5 @@
-import { CalendarHeart, Plus, RotateCcw, X } from 'lucide-react';
+import * as React from 'react';
+import { CalendarHeart, ChevronDown, Plus, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePlanner } from '@/store/planner';
+import { track } from '@/lib/analytics';
+import { PRIORITY_PRESETS, matchPreset } from '@/lib/priorityPresets';
 import {
   OCCASION_KINDS,
   OCCASION_LABELS,
@@ -45,6 +48,19 @@ export function PreferencesPanel() {
   const { input, updateWeights, updateLeave, updateBudget, updatePreferences, toggleTripType, setCurrency, reset } =
     usePlanner();
   const { preferences, leave, budget } = input;
+
+  const activePreset = matchPreset(preferences.weights);
+  // Open the fine-tune sliders straight away only when the user is already on a
+  // custom mix (e.g. returning after tuning) so their current settings aren't
+  // hidden. Fresh/preset users get the calm, low-choice default.
+  const [advancedOpen, setAdvancedOpen] = React.useState(() => activePreset === null);
+
+  const applyPreset = (id: string) => {
+    const preset = PRIORITY_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    updateWeights(preset.weights);
+    track('priority_preset_selected', { preset: id });
+  };
 
   const toggleSeason = (s: Season) => {
     const has = preferences.preferredSeasons.includes(s);
@@ -84,36 +100,91 @@ export function PreferencesPanel() {
       <Card glass>
         <CardHeader className="flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-base">Optimisation priorities</CardTitle>
+            <CardTitle className="text-base">What matters most?</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Plans re-rank instantly as you adjust weights.
+              Pick a starting point — plans re-rank instantly.
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={reset} className="gap-1.5">
             <RotateCcw className="h-4 w-4" /> Reset
           </Button>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {WEIGHT_LABELS.map(({ key, label, hint }) => (
-            <div key={key}>
-              <div className="mb-2 flex items-center justify-between">
-                <Label htmlFor={`w-${key}`}>{label}</Label>
-                <span className="text-sm font-semibold tabular-nums text-primary">
-                  {preferences.weights[key]}
-                </span>
-              </div>
-              <Slider
-                id={`w-${key}`}
-                value={[preferences.weights[key]]}
-                min={0}
-                max={5}
-                step={1}
-                onValueChange={([v]) => updateWeights({ [key]: v } as Partial<Weights>)}
-                aria-label={label}
+        <CardContent className="space-y-4">
+          <div
+            role="radiogroup"
+            aria-label="Priority preset"
+            className="grid gap-2 sm:grid-cols-2"
+          >
+            {PRIORITY_PRESETS.map((preset) => {
+              const active = activePreset?.id === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => applyPreset(preset.id)}
+                  className={`rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    active
+                      ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                      : 'border-border bg-card hover:bg-secondary'
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{preset.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {preset.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activePreset === null && (
+            <p className="text-xs font-medium text-primary">
+              Custom mix — fine-tuned below.
+            </p>
+          )}
+
+          <div className="border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              aria-expanded={advancedOpen}
+              className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <span className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4" /> Fine-tune priorities
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
               />
-              <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-            </div>
-          ))}
+            </button>
+
+            {advancedOpen && (
+              <div className="mt-4 space-y-5">
+                {WEIGHT_LABELS.map(({ key, label, hint }) => (
+                  <div key={key}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <Label htmlFor={`w-${key}`}>{label}</Label>
+                      <span className="text-sm font-semibold tabular-nums text-primary">
+                        {preferences.weights[key]}
+                      </span>
+                    </div>
+                    <Slider
+                      id={`w-${key}`}
+                      value={[preferences.weights[key]]}
+                      min={0}
+                      max={5}
+                      step={1}
+                      onValueChange={([v]) => updateWeights({ [key]: v } as Partial<Weights>)}
+                      aria-label={label}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
