@@ -107,45 +107,136 @@
 
 /* FullCalendar theming to match the design tokens. */
 .fc {
-  --fc-border-color: hsl(var(--border));
+  --fc-border-color: hsl(var(--border) / 0.6);
   --fc-page-bg-color: transparent;
   --fc-neutral-bg-color: hsl(var(--muted) / 0.5);
-  --fc-today-bg-color: hsl(var(--primary) / 0.1);
+  --fc-today-bg-color: hsl(var(--primary) / 0.08);
   --fc-event-border-color: transparent;
   --fc-small-font-size: 0.72rem;
   font-size: 0.85rem;
 }
+.fc .fc-toolbar {
+  gap: 0.75rem;
+}
 .fc .fc-toolbar-title {
   font-size: 1.1rem;
   font-weight: 650;
+  letter-spacing: -0.01em;
 }
 .fc .fc-daygrid-day-number,
 .fc .fc-col-header-cell-cushion {
   color: hsl(var(--foreground));
   text-decoration: none;
 }
+.fc .fc-col-header-cell-cushion {
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+.fc .fc-daygrid-day-number {
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 3px 5px;
+}
+/* Month titles in the year view read as quiet section headers. */
 .fc .fc-multimonth-title {
   color: hsl(var(--foreground));
   font-weight: 650;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  padding: 0.55rem 0.25rem;
+}
+.fc .fc-multimonth {
+  border: none;
+}
+.fc .fc-multimonth-daygrid {
+  background: hsl(var(--card) / 0.4);
+  border-radius: 0.75rem;
+  overflow: hidden;
 }
 .fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-top {
-  opacity: 0.35;
+  opacity: 0.3;
+}
+.fc .fc-daygrid-day {
+  transition: background-color 0.15s ease;
 }
 /* Weekend layer tint. */
 .fc .fc-day-sat,
 .fc .fc-day-sun {
-  background: hsl(var(--muted) / 0.4);
+  background: hsl(var(--muted) / 0.35);
 }
+/* Today: a ring around the date number rather than a flat cell wash. */
+.fc .fc-day-today .fc-daygrid-day-number {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-radius: 999px;
+  font-weight: 700;
+  min-width: 1.4rem;
+  text-align: center;
+}
+
+/* Block events: rounded, legible, with a gentle hover lift. */
 .fc-event {
   font-weight: 600;
-  padding: 0 3px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
+.fc-daygrid-block-event:hover,
+.fc-daygrid-dot-event:hover,
+.ep-block:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px hsl(var(--foreground) / 0.18);
+  cursor: default;
+}
+
+/* Range (background) layers — differentiated by pattern, not colour alone. */
+.fc .ep-range::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.fc .ep-range--blackout::after {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    hsl(var(--destructive) / 0.35) 0,
+    hsl(var(--destructive) / 0.35) 2px,
+    transparent 2px,
+    transparent 7px
+  );
+}
+.fc .ep-range--shutdown::after {
+  background-image: repeating-linear-gradient(
+    90deg,
+    hsl(var(--muted-foreground) / 0.3) 0,
+    hsl(var(--muted-foreground) / 0.3) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+}
+.fc .ep-range--school::after {
+  background-image: radial-gradient(
+    hsl(var(--warning) / 0.4) 1px,
+    transparent 1.4px
+  );
+  background-size: 7px 7px;
+}
+
 .fc .fc-button {
   background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
   color: hsl(var(--secondary-foreground));
   text-transform: none;
   font-weight: 600;
+  border-radius: 0.6rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 .fc .fc-button:hover {
   background: hsl(var(--muted));
@@ -159,4 +250,17 @@
 .fc .fc-button:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-event,
+  .fc .fc-daygrid-day,
+  .fc .fc-button {
+    transition: none;
+  }
+  .fc-daygrid-block-event:hover,
+  .fc-daygrid-dot-event:hover,
+  .ep-block:hover {
+    transform: none;
+  }
 }
