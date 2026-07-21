@@ -28,9 +28,9 @@ export const CALENDAR_LEGEND: LegendItem[] = [
   { label: 'Bank holiday', color: 'hsl(var(--accent))', kind: 'block', layer: 'holiday' },
   { label: 'Personal date', color: 'hsl(var(--warning))', kind: 'block', layer: 'personal' },
   { label: 'Colleague leave', color: 'hsl(var(--muted-foreground))', kind: 'block', layer: 'colleague' },
-  { label: 'Company blackout', color: 'hsl(var(--destructive) / 0.35)', kind: 'range', layer: 'blackout' },
-  { label: 'Shutdown', color: 'hsl(var(--muted-foreground) / 0.3)', kind: 'range', layer: 'shutdown' },
-  { label: 'School holidays', color: 'hsl(var(--warning) / 0.28)', kind: 'range', layer: 'school' },
+  { label: 'Company blackout', color: 'hsl(var(--destructive) / 0.85)', kind: 'range', layer: 'blackout' },
+  { label: 'Shutdown', color: 'hsl(var(--muted-foreground) / 0.6)', kind: 'range', layer: 'shutdown' },
+  { label: 'School holidays', color: 'hsl(var(--warning) / 0.8)', kind: 'range', layer: 'school' },
 ];
 
 /**
@@ -53,11 +53,13 @@ export function buildCalendarEvents(
       backgroundColor: 'hsl(var(--accent))',
       borderColor: 'transparent',
       textColor: 'hsl(var(--accent-foreground))',
+      classNames: ['ep-block', 'ep-block--holiday'],
       extendedProps: { layer: 'holiday' },
     });
   }
 
-  // Layer: company shutdown (range background).
+  // Layer: company shutdown (range background). A CSS pattern makes range
+  // layers distinguishable without relying on colour alone.
   for (const s of input.leave.shutdowns) {
     events.push({
       title: s.label ?? 'Shutdown',
@@ -66,6 +68,7 @@ export function buildCalendarEvents(
       allDay: true,
       display: 'background',
       backgroundColor: 'hsl(var(--muted-foreground) / 0.28)',
+      classNames: ['ep-range', 'ep-range--shutdown'],
       extendedProps: { layer: 'shutdown' },
     });
   }
@@ -79,6 +82,7 @@ export function buildCalendarEvents(
       allDay: true,
       display: 'background',
       backgroundColor: 'hsl(var(--destructive) / 0.28)',
+      classNames: ['ep-range', 'ep-range--blackout'],
       extendedProps: { layer: 'blackout' },
     });
   }
@@ -92,6 +96,7 @@ export function buildCalendarEvents(
       allDay: true,
       display: 'background',
       backgroundColor: 'hsl(var(--warning) / 0.22)',
+      classNames: ['ep-range', 'ep-range--school'],
       extendedProps: { layer: 'school' },
     });
   }
@@ -106,6 +111,7 @@ export function buildCalendarEvents(
       backgroundColor: 'hsl(var(--muted-foreground))',
       borderColor: 'transparent',
       textColor: 'hsl(var(--background))',
+      classNames: ['ep-block', 'ep-block--colleague'],
       extendedProps: { layer: 'colleague', status: c.status },
     });
   }
@@ -119,6 +125,7 @@ export function buildCalendarEvents(
       backgroundColor: 'hsl(var(--warning))',
       borderColor: 'transparent',
       textColor: 'hsl(var(--warning-foreground))',
+      classNames: ['ep-block', 'ep-block--personal'],
       extendedProps: { layer: 'personal' },
     });
   }
@@ -146,6 +153,7 @@ export function buildCalendarEvents(
         backgroundColor: 'hsl(var(--primary))',
         borderColor: 'transparent',
         textColor: 'hsl(var(--primary-foreground))',
+        classNames: ['ep-block', 'ep-block--leave'],
         extendedProps: { layer: 'leave' },
       });
     }

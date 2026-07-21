@@ -3,7 +3,21 @@ import FullCalendar from '@fullcalendar/react';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { CalendarPlus } from 'lucide-react';
+import {
+  CalendarPlus,
+  RotateCcw,
+  Plane,
+  Landmark,
+  Star,
+  Users,
+  Ban,
+  Moon,
+  GraduationCap,
+  CalendarRange,
+  Sparkles,
+  TrendingUp,
+  type LucideIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePlanner } from '@/store/planner';
@@ -14,6 +28,23 @@ import {
   type CalendarLayer,
   buildCalendarEvents,
 } from '@/lib/calendarEvents';
+
+/** Icon per calendar layer — a colour-independent cue for each legend chip. */
+const LAYER_ICON: Record<CalendarLayer, LucideIcon> = {
+  leave: Plane,
+  holiday: Landmark,
+  personal: Star,
+  colleague: Users,
+  blackout: Ban,
+  shutdown: Moon,
+  school: GraduationCap,
+};
+
+interface Summary {
+  label: string;
+  value: React.ReactNode;
+  icon: LucideIcon;
+}
 
 export function CalendarView() {
   const { input, result, selectedPlanId, colleagues } = usePlanner();
@@ -51,6 +82,22 @@ export function CalendarView() {
       return next;
     });
 
+  const summary: Summary[] = plan
+    ? [
+        { label: 'Days off', value: plan.totalDaysOff, icon: CalendarRange },
+        { label: 'Leave used', value: plan.totalLeaveUsed, icon: Plane },
+        { label: 'Breaks', value: plan.breaks.length, icon: Sparkles },
+        { label: 'Longest run', value: `${plan.longestBreak} days`, icon: TrendingUp },
+      ]
+    : [];
+
+  // Announce filter changes to assistive tech.
+  const shownCount = CALENDAR_LEGEND.length - hidden.size;
+  const liveMessage =
+    hidden.size === 0
+      ? 'Showing all calendar layers.'
+      : `Showing ${shownCount} of ${CALENDAR_LEGEND.length} calendar layers.`;
+
   return (
     <Card glass className="animate-fade-in">
       <CardHeader className="flex-row items-center justify-between gap-4">
@@ -66,36 +113,74 @@ export function CalendarView() {
         </Button>
       </CardHeader>
       <CardContent>
-        <div
-          className="mb-4 flex flex-wrap gap-2"
-          role="group"
-          aria-label="Toggle calendar layers"
-        >
-          {CALENDAR_LEGEND.map((item) => {
-            const off = hidden.has(item.layer);
-            return (
-              <button
-                key={item.layer}
-                type="button"
-                aria-pressed={!off}
-                onClick={() => toggle(item.layer)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                  off
-                    ? 'border-border bg-transparent text-muted-foreground line-through opacity-60'
-                    : 'border-border bg-card text-foreground'
-                }`}
+        {summary.length > 0 && (
+          <dl className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {summary.map((s) => (
+              <div
+                key={s.label}
+                className="flex items-center gap-3 rounded-xl border border-border/70 bg-card/60 p-3"
               >
-                <span
-                  aria-hidden
-                  className="inline-block h-3 w-3 rounded-[4px] border border-border"
-                  style={{ background: off ? 'transparent' : item.color }}
-                />
-                {item.label}
-              </button>
-            );
-          })}
+                <div className="rounded-lg bg-primary/12 p-2 text-primary" aria-hidden>
+                  <s.icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-xs font-medium text-muted-foreground">{s.label}</dt>
+                  <dd className="text-lg font-bold leading-tight tracking-tight">{s.value}</dd>
+                </div>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Toggle calendar layers"
+          >
+            {CALENDAR_LEGEND.map((item) => {
+              const off = hidden.has(item.layer);
+              const Icon = LAYER_ICON[item.layer];
+              return (
+                <button
+                  key={item.layer}
+                  type="button"
+                  aria-pressed={!off}
+                  onClick={() => toggle(item.layer)}
+                  title={off ? `Show ${item.label}` : `Hide ${item.label}`}
+                  className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    off
+                      ? 'border-dashed border-border bg-transparent text-muted-foreground opacity-70 hover:opacity-100'
+                      : 'border-transparent bg-card text-foreground shadow-sm hover:shadow'
+                  }`}
+                >
+                  <Icon
+                    aria-hidden
+                    className="h-3.5 w-3.5 shrink-0"
+                    style={{ color: off ? 'hsl(var(--muted-foreground))' : item.color }}
+                  />
+                  <span className={off ? 'line-through' : ''}>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {hidden.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setHidden(new Set())}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              Show all
+            </button>
+          )}
         </div>
-        <div className="overflow-x-auto">
+
+        <p className="sr-only" role="status" aria-live="polite">
+          {liveMessage}
+        </p>
+
+        <div className="overflow-x-auto rounded-xl">
           <FullCalendar
             plugins={[multiMonthPlugin, dayGridPlugin, interactionPlugin]}
             initialView="multiMonthYear"
