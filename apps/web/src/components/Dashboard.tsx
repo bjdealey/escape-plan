@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  ArrowRight,
   CalendarDays,
   Gauge,
   PiggyBank,
@@ -24,6 +25,8 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Bot } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { usePlanner } from '@/store/planner';
@@ -39,7 +42,10 @@ const NUDGE_QUESTIONS = [
   SUGGESTED_QUESTIONS.find((s) => /cheaper/i.test(s.q))?.q ?? SUGGESTED_QUESTIONS[1].q,
 ];
 
-export function Dashboard({ onAsk }: { onAsk?: (q: string) => void } = {}) {
+export function Dashboard({
+  onAsk,
+  onNavigate,
+}: { onAsk?: (q: string) => void; onNavigate?: (tab: string) => void } = {}) {
   const { input, result, selectedPlanId } = usePlanner();
   const colors = useThemeColors();
   const plan = result.plans.find((p) => p.id === selectedPlanId) ?? result.plans[0];
@@ -78,6 +84,46 @@ export function Dashboard({ onAsk }: { onAsk?: (q: string) => void } = {}) {
 
   return (
     <div className="space-y-5 animate-fade-in">
+      {/* Hero — the plan's headline outcome, elevated from the grey subtitle so
+          the "aha" (many days off from few leave days) is the first thing a
+          returning user sees, with a direct route to act on it. */}
+      <Card glass className="border-primary/30 bg-primary/[0.06]">
+        <CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="success">Your plan</Badge>
+              <span className="text-sm font-medium text-muted-foreground">
+                {plan.strategyLabel}
+              </span>
+            </div>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+              <span className="text-primary">{plan.totalDaysOff} days off</span> from just{' '}
+              {plan.totalLeaveUsed} leave {plan.totalLeaveUsed === 1 ? 'day' : 'days'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              That&rsquo;s {plan.efficiency.toFixed(2)}× per leave day · longest break{' '}
+              {plan.longestBreak} days
+              {cd.days !== null && cd.next ? ` · next escape in ${cd.days} days` : ''}.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+            <Button
+              onClick={() => {
+                track('hero_view_plan_clicked', { planId: plan.id });
+                onNavigate?.('plans');
+              }}
+              className="gap-1.5"
+            >
+              View &amp; request breaks <ArrowRight className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {plan.tripCount} {plan.tripCount === 1 ? 'trip' : 'trips'} ·{' '}
+              {formatCurrency(plan.totalEstimatedCost, currency)} est. spend
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Remaining leave"

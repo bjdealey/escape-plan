@@ -184,7 +184,7 @@ export default function App() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <Dashboard onAsk={askAssistant} />
+            <Dashboard onAsk={askAssistant} onNavigate={changeTab} />
           </TabsContent>
           <TabsContent value="calendar">
             <CalendarView />
