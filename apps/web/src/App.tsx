@@ -2,7 +2,6 @@ import * as React from 'react';
 import {
   ArrowLeft,
   BarChart3,
-  Bot,
   CalendarDays,
   CalendarRange,
   Compass,
@@ -26,7 +25,7 @@ import { Dashboard } from '@/components/Dashboard';
 import { CalendarView } from '@/components/CalendarView';
 import { PlansView } from '@/components/PlansView';
 import { PreferencesPanel } from '@/components/PreferencesPanel';
-import { AiPlanner } from '@/components/AiPlanner';
+import { AssistantWidget } from '@/components/AssistantWidget';
 import { GroupView } from '@/components/GroupView';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { NotificationPreferences } from '@/components/NotificationPreferences';
@@ -42,16 +41,14 @@ const TAB_KEY = 'escape-plan-tab';
 const PLAN_VIEWS = ['dashboard', 'calendar', 'plans'] as const;
 // Settings-like sections, reached from the header (gear / bell) rather than a tab.
 const SETTINGS_VIEWS = ['preferences', 'alerts'] as const;
-type View =
-  | (typeof PLAN_VIEWS)[number]
-  | (typeof SETTINGS_VIEWS)[number]
-  | 'group'
-  | 'assistant';
+type View = (typeof PLAN_VIEWS)[number] | (typeof SETTINGS_VIEWS)[number] | 'group';
 
 const isPlanView = (v: string): v is (typeof PLAN_VIEWS)[number] =>
   (PLAN_VIEWS as readonly string[]).includes(v);
 const isSettingsView = (v: string): v is (typeof SETTINGS_VIEWS)[number] =>
   (SETTINGS_VIEWS as readonly string[]).includes(v);
+const isView = (v: string | null): v is View =>
+  v != null && (isPlanView(v) || isSettingsView(v) || v === 'group');
 
 // The "Viewing as" switcher stands in for real IdP login and is dev-only — the
 // x-user-id it maps to is ignored under a real auth provider / in production.
@@ -73,7 +70,10 @@ export default function App() {
   const { theme, toggle } = useTheme();
   const [view, setView] = React.useState<View>(() => {
     try {
-      return (localStorage.getItem(TAB_KEY) as View) ?? 'dashboard';
+      // Sanitise: an old stored 'assistant' (now a floating widget, not a view)
+      // or any unknown value falls back to the default.
+      const stored = localStorage.getItem(TAB_KEY);
+      return isView(stored) ? stored : 'dashboard';
     } catch {
       return 'dashboard';
     }
@@ -84,6 +84,7 @@ export default function App() {
   );
 
   const [assistantSeed, setAssistantSeed] = React.useState<string | null>(null);
+  const [assistantOpen, setAssistantOpen] = React.useState(false);
 
   // Persist the active view so a return visit reopens where the user left off,
   // and record views so section engagement can be measured. Deep-links from
@@ -107,14 +108,11 @@ export default function App() {
     [changeView, lastPlanView],
   );
 
-  // A dashboard nudge stages a question, then opens the Assistant to ask it.
-  const askAssistant = React.useCallback(
-    (q: string) => {
-      setAssistantSeed(q);
-      changeView('assistant');
-    },
-    [changeView],
-  );
+  // A dashboard nudge stages a question, then opens the floating assistant.
+  const askAssistant = React.useCallback((q: string) => {
+    setAssistantSeed(q);
+    setAssistantOpen(true);
+  }, []);
 
   if (!onboarded) return <Onboarding />;
 
@@ -223,9 +221,6 @@ export default function App() {
               <TabsTrigger value="group">
                 <Users className="h-4 w-4" /> Group
               </TabsTrigger>
-              <TabsTrigger value="assistant">
-                <Bot className="h-4 w-4" /> Assistant
-              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="plan">
@@ -261,12 +256,6 @@ export default function App() {
             <TabsContent value="group">
               <GroupView />
             </TabsContent>
-            <TabsContent value="assistant">
-              <AiPlanner
-                seedQuestion={assistantSeed}
-                onSeedConsumed={() => setAssistantSeed(null)}
-              />
-            </TabsContent>
           </Tabs>
         )}
 
@@ -278,6 +267,13 @@ export default function App() {
           </p>
         </footer>
       </main>
+
+      <AssistantWidget
+        open={assistantOpen}
+        onOpenChange={setAssistantOpen}
+        seed={assistantSeed}
+        onSeedConsumed={() => setAssistantSeed(null)}
+      />
     </div>
   );
 }
