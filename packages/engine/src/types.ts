@@ -176,6 +176,15 @@ export interface EngineInput {
   /** How many distinct ranked plans to return. */
   planCount?: number;
   /**
+   * Today's date (ISO `YYYY-MM-DD`), optional. When present the engine treats
+   * every day before it as gone: no plan books leave on — or extends a break
+   * into — a past date, so planning the in-progress year only proposes dates
+   * from today onward. Absent ⇒ the whole year is planned (unchanged,
+   * deterministic behaviour). Supplied as data (never read from the clock) so
+   * the engine stays pure and deterministic.
+   */
+  today?: ISODate;
+  /**
    * Group constraint (optional). Absent ⇒ single-user behaviour is unchanged.
    * Colleague absence ranges used to enforce "max colleagues off simultaneously".
    */

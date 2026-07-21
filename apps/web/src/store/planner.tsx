@@ -19,6 +19,7 @@ import {
 } from '@escape-plan/engine';
 import { DEMO_COLLEAGUES, DEMO_TEAM, type ColleagueLeave } from '@escape-plan/engine';
 import { detectLocaleLocation, detectServerLocation } from '@/lib/detectLocation';
+import { todayISO } from '@/lib/metrics';
 
 const INPUT_KEY = 'escape-plan-input';
 const ONBOARD_KEY = 'escape-plan-onboarded';
@@ -62,6 +63,16 @@ function withHome(input: EngineInput, countryCode = detected.countryCode): Engin
 }
 
 /**
+ * Stamp the input with the current date so the engine only ever proposes leave
+ * from today onward — never into months of the in-progress year that have
+ * already passed. Refreshed on every load (not trusted from storage) so it can
+ * never go stale.
+ */
+function withToday(input: EngineInput): EngineInput {
+  return { ...input, today: todayISO() };
+}
+
+/**
  * Re-denominate an input into `toCurrency`. Budget amounts convert from their
  * current currency (preserving user edits); destination costs are re-derived
  * from the canonical GBP fixtures so the numbers can never drift or compound.
@@ -97,11 +108,11 @@ function loadInput(): { input: EngineInput; fresh: boolean } {
       // per-country data in case they were stored before conversion / per-
       // country holidays existed.
       return {
-        input: {
+        input: withToday({
           ...parsed,
           destinations: localiseDestinations(DEMO_DESTINATIONS, 'GBP', parsed.budget.currency),
           holidays: holidaysForCountry(parsed.home?.countryCode ?? detected.countryCode),
-        },
+        }),
         fresh: false,
       };
     }
@@ -111,7 +122,7 @@ function loadInput(): { input: EngineInput; fresh: boolean } {
   // Fresh user: home the demo input to the detected country so budget/costs are
   // real converted amounts and the holidays match the user's country.
   return {
-    input: applyHome(demoInput(), detected.countryCode),
+    input: withToday(applyHome(demoInput(), detected.countryCode)),
     fresh: true,
   };
 }
@@ -229,7 +240,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       reset: () => {
-        setInput(applyHome(demoInput(), detected.countryCode));
+        setInput(withToday(applyHome(demoInput(), detected.countryCode)));
         setOnboarded(false);
         setSelectedPlanId(DEFAULT_PLAN_ID);
       },
