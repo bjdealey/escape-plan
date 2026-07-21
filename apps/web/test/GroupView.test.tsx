@@ -31,8 +31,9 @@ describe('GroupView', () => {
     expect(screen.getAllByText('pending').length).toBeGreaterThan(0);
   });
 
-  it('shows the approval-likelihood readout derived from group data', () => {
+  it('shows a qualitative approval outlook derived from group data, not a fake %', () => {
     renderWithProviders(<GroupView />);
-    expect(screen.getByText(/Approval likelihood/i)).toBeInTheDocument();
+    expect(screen.getByText(/Approval outlook/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a probability/i)).toBeInTheDocument();
   });
 });

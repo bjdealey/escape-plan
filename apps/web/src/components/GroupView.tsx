@@ -300,7 +300,7 @@ function ApprovalCard({ groupId, run }: { groupId: string; run: (fn: () => void)
   const [end, setEnd] = React.useState('2026-10-09');
   const [prefilled, setPrefilled] = React.useState(false);
   const requests = g.requestsFor(groupId);
-  const likelihood = g.approvalLikelihood(groupId, start, end);
+  const outlook = g.approvalOutlook(groupId, start, end);
 
   // Adopt dates staged from a plan break, then clear the draft so it's applied
   // once. The user still reviews and submits — nothing is requested for them.
@@ -367,9 +367,9 @@ function ApprovalCard({ groupId, run }: { groupId: string; run: (fn: () => void)
           <Button type="submit">Request</Button>
         </form>
         <p className="text-xs text-muted-foreground">
-          Approval likelihood for these dates:{' '}
-          <span className="font-semibold text-foreground">{Math.round(likelihood * 100)}%</span>{' '}
-          (from real group overlap &amp; capacity).
+          Approval outlook for these dates:{' '}
+          <span className="font-semibold text-foreground">{outlook.label}</span> — {outlook.detail}{' '}
+          (from real group overlap &amp; capacity, not a probability).
         </p>
 
         <ul className="space-y-2">

@@ -15,10 +15,10 @@ import { usePlanner } from '@/store/planner';
 import { useGroups } from '@/store/groups';
 import { track } from '@/lib/analytics';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
-import type { Break, ISODate, Plan } from '@escape-plan/engine';
+import type { ApprovalOutlook, Break, ISODate, Plan } from '@escape-plan/engine';
 
-/** Likelihood of leave being approved for a date range, or `null` if N/A. */
-type ApprovalFor = (start: ISODate, end: ISODate) => number;
+/** Capacity-grounded approval outlook for a date range. */
+type ApprovalFor = (start: ISODate, end: ISODate) => ApprovalOutlook;
 
 export function PlansView({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { result, selectedPlanId, setSelectedPlanId, input } = usePlanner();
@@ -36,7 +36,7 @@ export function PlansView({ onNavigate }: { onNavigate?: (tab: string) => void }
 
   const teamName = teamId ? g.groups.find((x) => x.id === teamId)?.name : undefined;
   const approvalFor: ApprovalFor | undefined = teamId
-    ? (start, end) => g.approvalLikelihood(teamId, start, end)
+    ? (start, end) => g.approvalOutlook(teamId, start, end)
     : undefined;
 
   // One-click: stage a break's dates into the team's approval form and jump
@@ -201,10 +201,7 @@ function PlanCard({
                       : ' · staycation'}
               </span>
               {approvalFor && b.leaveDaysUsed > 0 ? (
-                <ApprovalHint
-                  likelihood={approvalFor(b.start, b.end)}
-                  teamName={teamName}
-                />
+                <ApprovalHint outlook={approvalFor(b.start, b.end)} teamName={teamName} />
               ) : null}
               {selected && onRequestBreak && b.leaveDaysUsed > 0 ? (
                 <button
@@ -233,20 +230,23 @@ function PlanCard({
 }
 
 /**
- * A compact, honest indicator of how likely this break is to be approved by the
- * user's team — derived from real colleague overlap and the team's capacity, not
- * a manufactured number. Renders the provenance in the accessible label so the
- * figure is never presented as pressure.
+ * A compact, honest indicator of whether this break is likely to clear the
+ * user's team — a qualitative capacity signal derived from real colleague
+ * overlap and the team's limit, deliberately NOT a manufactured probability.
+ * The concrete basis is exposed in the accessible label.
  */
-function ApprovalHint({ likelihood, teamName }: { likelihood: number; teamName?: string }) {
-  const pct = Math.round(likelihood * 100);
+function ApprovalHint({ outlook, teamName }: { outlook: ApprovalOutlook; teamName?: string }) {
   const tone =
-    likelihood >= 0.75 ? 'text-success' : likelihood >= 0.5 ? 'text-warning' : 'text-destructive';
+    outlook.level === 'clear' || outlook.level === 'open'
+      ? 'text-success'
+      : outlook.level === 'limited'
+        ? 'text-warning'
+        : 'text-destructive';
   const where = teamName ? `${teamName}'s` : 'your team’s';
-  const label = `${pct}% likely to be approved, based on ${where} real leave overlap and capacity`;
+  const label = `${outlook.label}: ${outlook.detail} Based on ${where} real leave overlap and team capacity — not a probability.`;
   return (
     <span className={`font-medium ${tone}`} title={label} aria-label={label}>
-      · {pct}% approval
+      · {outlook.label}
     </span>
   );
 }

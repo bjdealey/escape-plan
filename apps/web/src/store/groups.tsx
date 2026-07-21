@@ -25,7 +25,8 @@ import {
   canEditPlan,
   canViewPlan,
   colleaguesOffOn,
-  computeApprovalLikelihood,
+  approvalOutlook,
+  type ApprovalOutlook,
   normaliseEmail,
 } from '@escape-plan/engine';
 
@@ -81,7 +82,8 @@ export interface GroupsContextValue {
   requestsFor: (groupId: string) => LeaveRequestRecord[];
   colleagueAbsences: (groupId: string) => { start: string; end: string }[];
   maxSimultaneous: (groupId: string) => number | undefined;
-  approvalLikelihood: (groupId: string, start: string, end: string) => number;
+  /** Honest, capacity-grounded approval outlook for a date range (no fake %). */
+  approvalOutlook: (groupId: string, start: string, end: string) => ApprovalOutlook;
 
   invite: (groupId: string, email: string, role?: Role) => void;
   acceptInvite: (token: string) => void;
@@ -205,13 +207,13 @@ export function GroupsProvider({ children }: { children: React.ReactNode }) {
 
       colleagueAbsences,
       maxSimultaneous,
-      approvalLikelihood: (groupId, start, end) => {
+      approvalOutlook: (groupId, start, end) => {
         const abs = colleagueAbsences(groupId);
         let overlap = 0;
         for (let d = start; d <= end; d = addDay(d)) {
           overlap = Math.max(overlap, colleaguesOffOn(abs, d));
         }
-        return computeApprovalLikelihood({
+        return approvalOutlook({
           overlapColleagues: overlap,
           maxSimultaneous: maxSimultaneous(groupId) ?? 2,
           inBlackout: false,

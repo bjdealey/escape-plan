@@ -184,7 +184,7 @@ export function leaveVisibility(
   return 'hidden';
 }
 
-// --- Approval likelihood (replaces the old mock signal) --------------------
+// --- Approval outlook (capacity-grounded, not a manufactured probability) ---
 
 export interface ApprovalContext {
   /** Colleagues already off on the requested days. */
@@ -195,13 +195,76 @@ export interface ApprovalContext {
   inBlackout: boolean;
 }
 
+/** Traffic-light band for an approval outlook. */
+export type ApprovalLevel = 'clear' | 'open' | 'limited' | 'blocked';
+
+export interface ApprovalOutlook {
+  level: ApprovalLevel;
+  /** One- or two-word status, e.g. 'Clear', 'At capacity'. */
+  label: string;
+  /**
+   * Concrete reason grounded in the team's real constraints. Never a
+   * manufactured probability — the inputs don't support a calibrated one.
+   */
+  detail: string;
+  /** Free slots on the busiest overlapping day, counting this person's request. */
+  slotsFree: number;
+  /** The team's simultaneous-absence capacity. */
+  capacity: number;
+}
+
 /**
- * Derive an approval-likelihood signal (0..1) from real group constraints.
- * Deterministic; no network, no stub.
+ * Turn real group constraints into an honest, qualitative approval outlook.
+ * Deterministic; no network, no stub — and deliberately not a percentage. The
+ * available signals (blackout + remaining capacity) can't support a calibrated
+ * probability, so we report the capacity facts instead of implying one.
+ */
+export function approvalOutlook(ctx: ApprovalContext): ApprovalOutlook {
+  const capacity = Math.max(0, ctx.maxSimultaneous);
+  const slotsFree = capacity - ctx.overlapColleagues;
+  if (ctx.inBlackout) {
+    return {
+      level: 'blocked',
+      label: 'Blackout',
+      detail: 'These dates fall in a company blackout period.',
+      slotsFree: Math.max(0, slotsFree),
+      capacity,
+    };
+  }
+  if (slotsFree <= 0) {
+    return {
+      level: 'limited',
+      label: 'At capacity',
+      detail: `Your team is already at its ${capacity}-person limit on at least one of these days.`,
+      slotsFree: 0,
+      capacity,
+    };
+  }
+  if (ctx.overlapColleagues === 0) {
+    return {
+      level: 'clear',
+      label: 'Clear',
+      detail: 'No colleagues are booked off on these dates.',
+      slotsFree,
+      capacity,
+    };
+  }
+  return {
+    level: 'open',
+    label: 'Space to book',
+    detail: `${slotsFree} of ${capacity} team ${capacity === 1 ? 'slot' : 'slots'} free on the busiest day.`,
+    slotsFree,
+    capacity,
+  };
+}
+
+/**
+ * Legacy 0..1 capacity signal, retained only for the server's HR-integration
+ * API contract. NOT a calibrated probability — the user-facing web UI uses
+ * {@link approvalOutlook} and never presents this as a percentage.
  */
 export function computeApprovalLikelihood(ctx: ApprovalContext): number {
   if (ctx.inBlackout) return 0.05;
-  // Capacity remaining if this person also takes the day off.
   const remaining = ctx.maxSimultaneous - ctx.overlapColleagues;
   if (remaining <= 0) return 0.2;
   const ratio = Math.min(1, remaining / Math.max(1, ctx.maxSimultaneous));

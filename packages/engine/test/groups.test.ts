@@ -5,8 +5,8 @@ import {
   can,
   canEditPlan,
   canViewPlan,
+  approvalOutlook,
   colleaguesOffOn,
-  computeApprovalLikelihood,
   isValidInviteToken,
   leaveVisibility,
   normaliseEmail,
@@ -90,18 +90,30 @@ describe('privacy visibility', () => {
   });
 });
 
-describe('approval likelihood (derived, not stub)', () => {
-  it('is near-zero in a blackout', () => {
-    expect(computeApprovalLikelihood({ overlapColleagues: 0, maxSimultaneous: 2, inBlackout: true })).toBeLessThan(0.1);
+describe('approval outlook (capacity facts, not a manufactured probability)', () => {
+  it('flags a blackout as blocked', () => {
+    const o = approvalOutlook({ overlapColleagues: 0, maxSimultaneous: 2, inBlackout: true });
+    expect(o.level).toBe('blocked');
+    expect(o.detail).toMatch(/blackout/i);
   });
-  it('is low when capacity is already full', () => {
-    expect(computeApprovalLikelihood({ overlapColleagues: 2, maxSimultaneous: 2, inBlackout: false })).toBeLessThanOrEqual(0.2);
+  it('reports "at capacity" when the team is already full', () => {
+    const o = approvalOutlook({ overlapColleagues: 2, maxSimultaneous: 2, inBlackout: false });
+    expect(o.level).toBe('limited');
+    expect(o.slotsFree).toBe(0);
+    expect(o.detail).toMatch(/2-person limit/);
   });
-  it('is high when capacity is free, and deterministic', () => {
-    const a = computeApprovalLikelihood({ overlapColleagues: 0, maxSimultaneous: 2, inBlackout: false });
-    const b = computeApprovalLikelihood({ overlapColleagues: 0, maxSimultaneous: 2, inBlackout: false });
-    expect(a).toBe(b);
-    expect(a).toBeGreaterThan(0.8);
+  it('reports clear capacity with the real slot facts, deterministically', () => {
+    const a = approvalOutlook({ overlapColleagues: 0, maxSimultaneous: 2, inBlackout: false });
+    const b = approvalOutlook({ overlapColleagues: 0, maxSimultaneous: 2, inBlackout: false });
+    expect(a).toEqual(b);
+    expect(a.level).toBe('clear');
+    expect(a.slotsFree).toBe(2);
+  });
+  it('reports remaining slots when some colleagues are already off', () => {
+    const o = approvalOutlook({ overlapColleagues: 1, maxSimultaneous: 3, inBlackout: false });
+    expect(o.level).toBe('open');
+    expect(o.slotsFree).toBe(2);
+    expect(o.detail).toMatch(/2 of 3 team slots free/);
   });
 });
 

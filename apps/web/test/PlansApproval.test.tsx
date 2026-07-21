@@ -16,18 +16,19 @@ function ActingAs({ id, children }: { id: number; children: React.ReactNode }) {
 }
 
 describe('PlansView approval likelihood', () => {
-  it('shows an honest approval hint for a team member, with provenance', async () => {
+  it('shows an honest approval hint for a team member, with provenance and no fake %', async () => {
     // Default acting user (1) belongs to the Product Team.
     renderWithProviders(<PlansView />);
 
-    const hints = await screen.findAllByText(/% approval$/);
-    expect(hints.length).toBeGreaterThan(0);
-
-    // The accessible label names the real basis, never manufactured pressure.
-    const labelled = screen.getAllByLabelText(
-      /likely to be approved, based on .*real leave overlap and capacity/i,
+    // The accessible label names the real basis and disclaims being a probability.
+    const labelled = await screen.findAllByLabelText(
+      /based on .*real leave overlap and team capacity — not a probability/i,
     );
-    expect(labelled.length).toBe(hints.length);
+    expect(labelled.length).toBeGreaterThan(0);
+
+    // No manufactured percentage is ever shown as an approval likelihood.
+    expect(screen.queryByText(/% approval/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/% likely to be approved/)).not.toBeInTheDocument();
   });
 
   it('shows no approval hint for a user with no team (household-only)', async () => {
@@ -39,7 +40,9 @@ describe('PlansView approval likelihood', () => {
     );
 
     await waitFor(() => {
-      expect(screen.queryByText(/% approval$/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/real leave overlap and team capacity/i),
+      ).not.toBeInTheDocument();
     });
   });
 });
