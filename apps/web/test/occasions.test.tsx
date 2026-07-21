@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PreferencesPanel } from '@/components/PreferencesPanel';
@@ -30,10 +30,37 @@ describe('Time off for anything (occasions)', () => {
 });
 
 describe('anchored breaks surface in plans', () => {
+  // The demo is a fixed-2026 fixture but the planner now stamps the real date so
+  // plans never propose days already gone. Pin the clock to early in the demo
+  // year so both seeded anchors (14 Jun, 16 Oct) are still upcoming and the
+  // showcase is deterministic regardless of when the suite runs.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-15T00:00:00Z'));
+  });
+  afterAll(() => vi.useRealTimers());
+
   it('a plan shows non-travel time off around a personal date', () => {
     renderWithProviders(<PlansView />);
     // Every plan includes the anchored occasions from the demo.
     expect(screen.getAllByText(/Anniversary \(Occasion\)/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/House move \(Life admin\)/).length).toBeGreaterThan(0);
+  });
+});
+
+describe('plans respect the current date', () => {
+  // Once "today" is past the anniversary (14 Jun) but before the house move
+  // (16 Oct), no plan may anchor around the date that has already gone, while a
+  // still-upcoming commitment is kept.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-01T00:00:00Z'));
+  });
+  afterAll(() => vi.useRealTimers());
+
+  it('drops a commitment that has already passed but keeps upcoming ones', () => {
+    renderWithProviders(<PlansView />);
+    expect(screen.queryByText(/Anniversary \(Occasion\)/)).toBeNull();
     expect(screen.getAllByText(/House move \(Life admin\)/).length).toBeGreaterThan(0);
   });
 });

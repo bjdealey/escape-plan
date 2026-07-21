@@ -55,6 +55,14 @@ export function buildCalendar(input: EngineInput): Map<ISODate, DayInfo> {
       naturallyOff = true;
     }
 
+    // Days already gone are a hard boundary: leave can't be booked there, and a
+    // break must never count or extend into them — so a past weekend/holiday is
+    // reported as neither off nor bookable. Absent `today` ⇒ nothing is past.
+    if (input.today !== undefined && date < input.today) {
+      map.set(date, { date, kind, naturallyOff: false, bookable: false, holidayName: holiday?.name });
+      continue;
+    }
+
     // Blackout only matters on otherwise-workable days: it blocks booking.
     const bookable = !naturallyOff && !blackout;
     if (blackout && !naturallyOff) kind = 'blackout';
