@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bot, Send, Sparkles } from 'lucide-react';
+import { Bot, Send, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,13 @@ interface Message {
 export function AiPlanner({
   seedQuestion,
   onSeedConsumed,
+  onClose,
 }: {
   /** A question handed in from elsewhere (e.g. a dashboard nudge) to ask on open. */
   seedQuestion?: string | null;
   onSeedConsumed?: () => void;
+  /** When provided (e.g. in the floating panel), renders a close control. */
+  onClose?: () => void;
 } = {}) {
   const { input, result, aiEnabled, setAiEnabled } = usePlanner();
   const [messages, setMessages] = React.useState<Message[]>([
@@ -56,12 +59,12 @@ export function AiPlanner({
   return (
     <Card glass className="animate-fade-in">
       <CardHeader className="flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <div className="rounded-lg bg-primary/12 p-2 text-primary">
             <Bot className="h-5 w-5" />
           </div>
-          <div>
-            <CardTitle className="text-base">Ask Escape Plan</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="whitespace-nowrap text-base">Ask Escape Plan</CardTitle>
             <p className="text-sm text-muted-foreground">
               {aiEnabled
                 ? 'AI rephrasing ON — answers still computed by the engine.'
@@ -69,20 +72,33 @@ export function AiPlanner({
             </p>
           </div>
         </div>
-        {/* The AI on/off control lives here, where its effect is visible, rather
-            than as a global header toggle competing for attention on every tab. */}
-        <label htmlFor="ai-toggle" className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
-          <Label htmlFor="ai-toggle" className="cursor-pointer text-sm text-muted-foreground">
-            {aiEnabled ? 'AI on' : 'Deterministic'}
-          </Label>
-          <Switch
-            id="ai-toggle"
-            checked={aiEnabled}
-            onCheckedChange={setAiEnabled}
-            aria-label="Toggle AI rephrasing"
-          />
-        </label>
+        <div className="flex items-center gap-2">
+          {/* The AI on/off control lives here, where its effect is visible, rather
+              than as a global header toggle competing for attention on every tab. */}
+          <label htmlFor="ai-toggle" className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
+            <Label htmlFor="ai-toggle" className="cursor-pointer text-sm text-muted-foreground">
+              {aiEnabled ? 'AI on' : 'Deterministic'}
+            </Label>
+            <Switch
+              id="ai-toggle"
+              checked={aiEnabled}
+              onCheckedChange={setAiEnabled}
+              aria-label="Toggle AI rephrasing"
+            />
+          </label>
+          {onClose ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onClose}
+              aria-label="Close assistant"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div

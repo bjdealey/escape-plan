@@ -22,17 +22,31 @@ describe('App navigation', () => {
   });
   afterEach(() => localStorage.clear());
 
-  it('collapses the top nav to three job-shaped tabs', () => {
+  it('collapses the top nav to the two core-job tabs, with the assistant floating', () => {
     renderWithProviders(<App />);
     const topNav = screen.getByRole('tablist', { name: 'Planner sections' });
     expect(within(topNav).getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual([
       'Plan',
       'Group',
-      'Assistant',
     ]);
-    // The settings-like sections are no longer top-level tabs.
+    // Settings and the assistant are no longer top-level tabs.
     expect(screen.queryByRole('tab', { name: 'Alerts' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Preferences' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Assistant' })).not.toBeInTheDocument();
+    // The assistant is reachable from every screen as a floating button.
+    expect(screen.getByRole('button', { name: 'Ask the assistant' })).toBeInTheDocument();
+  });
+
+  it('opens the floating assistant panel from its button', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Ask the assistant' }));
+    const dialog = screen.getByRole('dialog', { name: 'Escape Plan assistant' });
+    expect(within(dialog).getByText('Ask Escape Plan')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Close assistant' }));
+    expect(screen.queryByRole('dialog', { name: 'Escape Plan assistant' })).not.toBeInTheDocument();
   });
 
   it('nests Dashboard, Calendar and Plans under the Plan tab', () => {
