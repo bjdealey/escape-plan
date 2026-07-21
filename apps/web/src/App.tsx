@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { BarChart3, BellRing, Bot, CalendarDays, Compass, ListChecks, Moon, Sliders, Sun, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -42,7 +41,7 @@ const SHOW_USER_SWITCHER = (() => {
 })();
 
 export default function App() {
-  const { onboarded, aiEnabled, setAiEnabled, result, selectedPlanId } = usePlanner();
+  const { onboarded, result, selectedPlanId } = usePlanner();
   const groups = useGroups();
   const { theme, toggle } = useTheme();
   const [tab, setTab] = React.useState<string>(() => {
@@ -120,18 +119,6 @@ export default function App() {
                 </Select>
               </div>
             ) : null}
-            <div className="hidden items-center gap-2 sm:flex">
-              <Bot className="h-4 w-4 text-muted-foreground" aria-hidden />
-              <Label htmlFor="ai-toggle" className="text-xs text-muted-foreground">
-                AI planner
-              </Label>
-              <Switch
-                id="ai-toggle"
-                checked={aiEnabled}
-                onCheckedChange={setAiEnabled}
-                aria-label="Toggle AI planner rephrasing"
-              />
-            </div>
             <NotificationCenter onNavigate={(t) => changeTab(t)} />
             <Button
               variant="outline"

@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { Bot, Send, Sparkles } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { usePlanner } from '@/store/planner';
 import { SUGGESTED_QUESTIONS, answer } from '@/lib/assistant';
 
@@ -20,7 +21,7 @@ export function AiPlanner({
   seedQuestion?: string | null;
   onSeedConsumed?: () => void;
 } = {}) {
-  const { input, result, aiEnabled } = usePlanner();
+  const { input, result, aiEnabled, setAiEnabled } = usePlanner();
   const [messages, setMessages] = React.useState<Message[]>([
     {
       role: 'assistant',
@@ -68,10 +69,20 @@ export function AiPlanner({
             </p>
           </div>
         </div>
-        <Badge variant={aiEnabled ? 'default' : 'secondary'} className="gap-1">
-          <Sparkles className="h-3 w-3" />
-          {aiEnabled ? 'AI on' : 'Deterministic'}
-        </Badge>
+        {/* The AI on/off control lives here, where its effect is visible, rather
+            than as a global header toggle competing for attention on every tab. */}
+        <label htmlFor="ai-toggle" className="flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
+          <Label htmlFor="ai-toggle" className="cursor-pointer text-sm text-muted-foreground">
+            {aiEnabled ? 'AI on' : 'Deterministic'}
+          </Label>
+          <Switch
+            id="ai-toggle"
+            checked={aiEnabled}
+            onCheckedChange={setAiEnabled}
+            aria-label="Toggle AI rephrasing"
+          />
+        </label>
       </CardHeader>
       <CardContent className="space-y-4">
         <div
