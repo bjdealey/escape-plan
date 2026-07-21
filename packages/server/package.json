@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:integration:live": "RUN_LIVE_INTEGRATION=1 vitest run test/integration.live.test.ts",
     "migrate": "tsx src/migrate.ts",
     "rollback": "tsx src/migrate.ts rollback",
     "seed": "tsx src/seed.ts"
@@ -22,6 +23,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "pg": "^8.13.1",
+    "web-push": "^3.6.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -30,6 +32,7 @@
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^6.0.2",
+    "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "^2.1.8",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",

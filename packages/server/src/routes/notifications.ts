@@ -71,11 +71,22 @@ export function mountNotificationRoutes(app: Express, store: NotificationStore):
 
   app.post('/api/push/subscribe', async (req, res) => {
     const s = getSession(req);
-    const endpoint = (req.body as { endpoint?: unknown })?.endpoint;
+    const body = (req.body ?? {}) as { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
+    const endpoint = body.endpoint;
     if (typeof endpoint !== 'string' || !/^https?:\/\//.test(endpoint)) {
       return res.status(400).json({ error: 'valid endpoint required' });
     }
-    await store.addPushSubscription({ userId: s.userId, endpoint, createdAt: new Date().toISOString() });
+    // Encryption keys are optional at the API (endpoint-only subscriptions are
+    // still recorded), but real web push can only deliver when both are present.
+    const p256dh = typeof body.keys?.p256dh === 'string' ? body.keys.p256dh : undefined;
+    const auth = typeof body.keys?.auth === 'string' ? body.keys.auth : undefined;
+    await store.addPushSubscription({
+      userId: s.userId,
+      endpoint,
+      p256dh,
+      auth,
+      createdAt: new Date().toISOString(),
+    });
     return res.json({ ok: true });
   });
 

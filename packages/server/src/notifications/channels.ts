@@ -1,3 +1,4 @@
+import webpush from 'web-push';
 import { escapeHtml } from '@escape-plan/engine';
 
 export interface EmailMessage {
@@ -9,9 +10,15 @@ export interface EmailMessage {
   unsubscribeUrl?: string;
 }
 
+/** A single browser push target: endpoint plus its RFC 8291 encryption keys. */
+export interface PushSubscriptionInput {
+  endpoint: string;
+  keys?: { p256dh: string; auth: string };
+}
+
 export interface PushMessage {
   userId: number;
-  endpoints: string[];
+  subscriptions: PushSubscriptionInput[];
   title: string;
   body: string;
   link: string;
@@ -102,6 +109,38 @@ export class MockPushChannel implements PushChannel {
   }
 }
 
+/**
+ * Real Web Push (VAPID / RFC 8291) via the `web-push` library. Encrypts the
+ * payload per subscription and POSTs to each browser push endpoint (FCM, Mozilla
+ * autopush, WNS…). A subscription missing its p256dh/auth keys cannot be
+ * encrypted and is skipped. The send throws only when EVERY deliverable
+ * subscription fails, so the outbox retries; a partial success is accepted.
+ */
+export class WebPushChannel implements PushChannel {
+  readonly name = 'web-push';
+  constructor(publicKey: string, privateKey: string, subject: string) {
+    // Configure VAPID once for this channel instance.
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+  }
+  async send(msg: PushMessage): Promise<void> {
+    const targets = msg.subscriptions.filter((s) => s.keys?.p256dh && s.keys?.auth);
+    if (targets.length === 0) return; // nothing encryptable — a no-op, not a failure
+    const payload = JSON.stringify({ title: msg.title, body: msg.body, link: msg.link });
+    const results = await Promise.allSettled(
+      targets.map((s) =>
+        webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys! }, payload),
+      ),
+    );
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+    if (failures.length === targets.length) {
+      const reason = (failures[0].reason as Error)?.message ?? 'unknown error';
+      throw new Error(`web push failed for all ${targets.length} subscription(s): ${reason}`);
+    }
+  }
+}
+
 export interface Channels {
   email: EmailChannel;
   push: PushChannel;
@@ -112,14 +151,25 @@ export function resolveChannels(baseUrl = process.env.APP_BASE_URL ?? 'http://lo
   const key = process.env.RESEND_API_KEY;
   const from = process.env.NOTIFY_EMAIL_FROM ?? 'Escape Plan <notify@escape-plan.app>';
   const email: EmailChannel = key ? new ResendEmailChannel(key, from, baseUrl) : new MockEmailChannel(baseUrl);
-  // Real web push (VAPID/web-push) is a documented seam; not wired without keys.
-  const push: PushChannel = new MockPushChannel();
+
+  // Real web push activates when BOTH VAPID keys are present, otherwise mock.
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:notify@escape-plan.app';
+  const push: PushChannel =
+    vapidPublic && vapidPrivate
+      ? new WebPushChannel(vapidPublic, vapidPrivate, vapidSubject)
+      : new MockPushChannel();
+
   return { email, push };
 }
 
 export function channelStatus(): Record<string, 'live' | 'mock'> {
   return {
     email: process.env.RESEND_API_KEY ? 'live' : 'mock',
-    push: process.env.VAPID_PRIVATE_KEY ? 'live' : 'mock',
+    // Live push requires BOTH VAPID keys — the same condition resolveChannels
+    // uses to wire the real WebPushChannel, so status can never claim 'live'
+    // while delivery is still the mock.
+    push: process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY ? 'live' : 'mock',
   };
 }

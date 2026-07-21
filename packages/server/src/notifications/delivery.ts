@@ -47,7 +47,10 @@ export async function processOutbox(deps: DeliveryDeps): Promise<DeliveryResult>
         const subs = await deps.store.pushSubscriptions(item.userId);
         await deps.channels.push.send({
           userId: item.userId,
-          endpoints: subs.map((s) => s.endpoint),
+          subscriptions: subs.map((s) => ({
+            endpoint: s.endpoint,
+            keys: s.p256dh && s.auth ? { p256dh: s.p256dh, auth: s.auth } : undefined,
+          })),
           title: item.subject,
           body: item.body,
           link: item.link,

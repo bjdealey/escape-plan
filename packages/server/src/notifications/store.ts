@@ -36,6 +36,13 @@ export interface OutboxItem {
 export interface PushSubscriptionRecord {
   userId: number;
   endpoint: string;
+  /**
+   * RFC 8291 payload-encryption keys from the browser PushSubscription. Both are
+   * required to deliver a real (non-mock) web push; a subscription missing them
+   * is retained but skipped by the live channel.
+   */
+  p256dh?: string;
+  auth?: string;
   createdAt: string;
 }
 

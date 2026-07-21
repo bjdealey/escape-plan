@@ -85,16 +85,21 @@ confirmation enforced in code.
 | Currency | **Frankfurter** (ECB) | `GET api.frankfurter.app/latest?base=&symbols=` | `CURRENCY_PROVIDER=frankfurter` | ✅ yes |
 | Holidays *(new interface)* | **Nager.Date** | `GET date.nager.at/api/v3/PublicHolidays/{year}/{cc}` | `HOLIDAY_PROVIDER=nager` | ✅ yes |
 | Weather | **Open-Meteo** archive | `GET archive-api.open-meteo.com/v1/archive` (ERA5) | `WEATHER_PROVIDER=open-meteo` | ✅ yes |
-| Flights | **Amadeus** self-service | OAuth2 `+ /v2/shopping/flight-offers` | `AMADEUS_CLIENT_ID/SECRET` | ⚠️ code-complete, not verified (no key) |
+| Flights | **Amadeus** self-service | OAuth2 `+ /v2/shopping/flight-offers` | `AMADEUS_CLIENT_ID/SECRET` | contract-tested (token cache, empty/malformed offers, auth failure) + gated live smoke |
 | Maps | **Mapbox** Static Images | `api.mapbox.com/styles/v1/.../static/...` | `VITE_MAPBOX_TOKEN` | ⚠️ graceful placeholder without token |
-| Calendar | **Google Calendar** free/busy + insert | documented; write-back gated | `GOOGLE_*` | ⚠️ mock default; write requires `confirm:true` |
+| Calendar | **Google Calendar** free/busy + insert | documented; write-back gated | `GOOGLE_*` | contract-tested (free/busy + write + validation); write requires `confirm:true` |
 | Auth | **local dev session** (Auth.js seam) | — | `AUTH_PROVIDER` | local session by default |
 
-All three keyless providers (Frankfurter, Nager, Open-Meteo) are keyless free
-tiers, verified against their live endpoints during development. The key-gated
-adapters (Amadeus, Mapbox, Google) are implemented against their **documented**
-contracts but could not be verified without accounts — recorded here honestly
-rather than claimed as working.
+All four keyless providers (Frankfurter, Nager, Open-Meteo, ipwho) run keyless
+free tiers. **Every** real adapter now has a contract test (request-building +
+`zod` parsing against a recorded response, happy and error paths) *and* an
+opt-in live smoke test (`RUN_LIVE_INTEGRATION=1`, per-provider gated on its own
+flag/credentials — see `test/integration.live.test.ts` and
+`npm run test:integration:live`). The key-gated adapters (Amadeus, Google,
+Resend, VAPID) are implemented against their **documented** contracts and
+proven against those contracts in tests; a real live run requires the relevant
+keys **and** outbound egress, so it is not claimed as executed here where the
+sandbox blocks egress — the contract tests carry the verification in that case.
 
 ### Env vars added (all optional; absent ⇒ mock/placeholder)
 `CURRENCY_PROVIDER`, `HOLIDAY_PROVIDER`, `WEATHER_PROVIDER`,
@@ -317,10 +322,18 @@ the requester and approvers of that group).
 - **Email** (env-gated): real adapter targets **Resend** (`POST
   https://api.resend.com/emails`, documented) — mock fallback logs + records.
   `List-Unsubscribe` header + working no-login unsubscribe link.
-- **Web push** (env-gated): VAPID/`web-push` seam — mock fallback logs. Browser
-  opt-in via `Notification.requestPermission` (never on first load). The real
-  push send is documented but **not verified** (no VAPID keys / real
-  subscription) — recorded honestly.
+- **Web push** (env-gated): **real `WebPushChannel`** — VAPID via the `web-push`
+  library, RFC 8291 payload encryption per subscription, wired in
+  `resolveChannels` whenever BOTH VAPID keys are present (mock otherwise). Browser
+  opt-in via `Notification.requestPermission` (never on first load). Subscriptions
+  now carry the `p256dh`/`auth` encryption keys (store type + migration `004` +
+  `/api/push/subscribe`); a keyless subscription is retained but skipped by the
+  live channel. `channelStatus().push` now reports `live` under the *same*
+  condition that wires the real channel — it can no longer claim `live` while
+  delivery is still the mock (previously it did). Contract-tested against a
+  stubbed `web-push` (per-sub encrypt, partial vs. total failure → outbox retry,
+  status honesty); a real end-to-end push needs VAPID keys + egress (gated live
+  smoke).
 
 ## Delivery & reliability (outbox pattern)
 
@@ -356,8 +369,9 @@ the requester and approvers of that group).
 
 ## New env vars (Phase 4, all optional; absent ⇒ mock, cold start works)
 - `RESEND_API_KEY`, `NOTIFY_EMAIL_FROM` — real transactional email via Resend.
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — real web push (documented seam; not
-  wired live).
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — activate the real `WebPushChannel`
+  (both required; generate with `npx web-push generate-vapid-keys`).
+- `VAPID_SUBJECT` — VAPID contact (`mailto:` or URL); defaults to a mailto.
 - `APP_BASE_URL` (deep-link base in emails), `API_BASE_URL` (unsubscribe links).
 
 ## Coverage achieved (Phase 4)
@@ -383,8 +397,16 @@ the requester and approvers of that group).
   in-app), no-login unsubscribe honoured immediately; HTML-escaped body +
   CR/LF-stripped subject (no header injection). Notification centre + prefs
   render with no console errors on cold load; AA tokens unchanged.
-- **Not verified (no keys/account):** live Resend email send and live web push
-  (VAPID) — implemented/seamed against documented contracts, default to mocks.
+- **Contract-tested (recorded responses, happy + error paths):** the Resend
+  email adapter (auth header, one-click `List-Unsubscribe`, HTML escaping, non-2xx
+  → retry) and the real `WebPushChannel` (per-sub encrypt, keyless-skip,
+  partial-success, all-fail → retry, status honesty) — see `test/channels.test.ts`.
+- **Not executed here (needs real keys + network egress):** an actual live Resend
+  send and an actual live VAPID push. Both are implemented and default to mocks;
+  the gated live smoke suite (`npm run test:integration:live`, opt-in via
+  `RUN_LIVE_INTEGRATION=1`) runs them wherever those credentials and egress
+  exist. This sandbox blocks outbound egress, so live end-to-end could not be
+  run here — the contract tests carry the verification instead.
 - **Verified in CI only (no local Docker/Postgres):** migration 003 + rollback
   and the Postgres notification store — reported as skipped locally, not passing.
 - **Not implemented (kept honest):** provider bounce/complaint webhooks are a

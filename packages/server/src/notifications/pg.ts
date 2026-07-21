@@ -141,17 +141,21 @@ export class PgNotificationStore implements NotificationStore {
 
   async addPushSubscription(sub: PushSubscriptionRecord): Promise<void> {
     await this.pool.query(
-      `INSERT INTO push_subscriptions (user_id, endpoint, created_at) VALUES ($1,$2,$3)
-       ON CONFLICT (user_id, endpoint) DO NOTHING`,
-      [sub.userId, sub.endpoint, sub.createdAt],
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (user_id, endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth`,
+      [sub.userId, sub.endpoint, sub.p256dh ?? null, sub.auth ?? null, sub.createdAt],
     );
   }
   async pushSubscriptions(userId: number): Promise<PushSubscriptionRecord[]> {
     const { rows } = await this.pool.query(
-      `SELECT user_id AS "userId", endpoint, ${TS('created_at', 'createdAt')} FROM push_subscriptions WHERE user_id = $1`,
+      `SELECT user_id AS "userId", endpoint, p256dh, auth, ${TS('created_at', 'createdAt')} FROM push_subscriptions WHERE user_id = $1`,
       [userId],
     );
-    return rows as PushSubscriptionRecord[];
+    return rows.map((r) => ({
+      ...r,
+      p256dh: r.p256dh ?? undefined,
+      auth: r.auth ?? undefined,
+    })) as PushSubscriptionRecord[];
   }
 
   async createUnsubToken(rec: UnsubTokenRecord): Promise<void> {

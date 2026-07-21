@@ -208,22 +208,42 @@ and **web push** — and are **additive, asynchronous, and authorization-scoped*
 **Integration flags (all optional; absent ⇒ seeded mock).** See
 `packages/server/.env.example` for the full list.
 
-| Var | Provider (real) | Verified |
-|-----|-----------------|----------|
-| `CURRENCY_PROVIDER=frankfurter` | Frankfurter / ECB (keyless) | ✅ live |
-| `HOLIDAY_PROVIDER=nager` | Nager.Date (keyless) | ✅ live |
-| `WEATHER_PROVIDER=open-meteo` | Open-Meteo ERA5 (keyless) | ✅ live |
-| `AMADEUS_CLIENT_ID` / `_SECRET` | Amadeus flight offers | contract only |
-| `GOOGLE_ACCESS_TOKEN` | Google Calendar (write needs `confirm`) | contract only |
-| `AUTH_PROVIDER` | Auth.js/Clerk seam (dev session default) | n/a |
-| `RESEND_API_KEY` / `NOTIFY_EMAIL_FROM` | Resend transactional email | contract only |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push (VAPID) | seam only |
-| `LOCATION_PROVIDER=ipwho` | ipwho.is IP geolocation (keyless) | ✅ live |
+Every real adapter has a **contract test** (its request-building + `zod`
+response-parsing exercised against a recorded response, happy **and** error
+paths) and a **live smoke test** gated behind `RUN_LIVE_INTEGRATION=1`:
+
+| Var | Provider (real) | Contract test | Live smoke |
+|-----|-----------------|---------------|------------|
+| `CURRENCY_PROVIDER=frankfurter` | Frankfurter / ECB (keyless) | ✅ | ✅ keyless |
+| `HOLIDAY_PROVIDER=nager` | Nager.Date (keyless) | ✅ | ✅ keyless |
+| `WEATHER_PROVIDER=open-meteo` | Open-Meteo ERA5 (keyless) | ✅ | ✅ keyless |
+| `LOCATION_PROVIDER=ipwho` | ipwho.is IP geolocation (keyless) | ✅ | ✅ keyless |
+| `AMADEUS_CLIENT_ID` / `_SECRET` | Amadeus flight offers | ✅ (incl. token cache, empty/malformed offers, auth failure) | needs free dev key |
+| `GOOGLE_ACCESS_TOKEN` | Google Calendar (write needs `confirm`) | ✅ (free/busy + write + validation) | needs OAuth token |
+| `RESEND_API_KEY` / `NOTIFY_EMAIL_FROM` | Resend transactional email | ✅ (headers, one-click unsubscribe, HTML escape, error) | needs key + `LIVE_EMAIL_TO` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push (VAPID, `web-push`) — **real channel** | ✅ (per-sub encrypt, partial/total failure, status honesty) | needs VAPID keys |
+| `AUTH_PROVIDER` | Auth.js/Clerk seam (dev session default) | n/a | n/a |
+
+**Running the live smoke tests** (real network + real credentials):
+
+```bash
+RUN_LIVE_INTEGRATION=1 \
+  CURRENCY_PROVIDER=frankfurter HOLIDAY_PROVIDER=nager \
+  WEATHER_PROVIDER=open-meteo LOCATION_PROVIDER=ipwho \
+  npm run test:integration:live --workspace @escape-plan/server
+```
+
+Each provider's live test runs only when its own flag/credentials are present,
+so a partial set still verifies what it can. The suite is **skipped by default**
+so the offline suite and CI stay green with no keys and no egress. (Live
+end-to-end therefore requires real keys **and** outbound network access — it
+cannot run in a sandbox with blocked egress; the contract tests cover the
+adapter logic there.)
 
 The API serves the **seeded fixtures when no database is reachable** and every
 integration **defaults to its seeded mock**, so `npm run dev:server` works with
 zero configuration. Key endpoints: `GET /api/health` (shows live/mock per
-provider), `GET /api/bootstrap`, `POST /api/optimise`,
+provider **and channel**), `GET /api/bootstrap`, `POST /api/optimise`,
 `GET /api/integrations/{weather,flights,currency,holidays,approval,calendar}`,
 and `POST /api/integrations/calendar/events` (requires `{ "confirm": true }`).
 

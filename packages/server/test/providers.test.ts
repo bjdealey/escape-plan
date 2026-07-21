@@ -177,4 +177,73 @@ describe('Amadeus flights adapter (documented contract)', () => {
     expect(quote).toEqual({ price: 184, currency: 'GBP' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('sends the OAuth token as a bearer header and the requested route/currency', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url.includes('oauth2/token')) {
+        return fakeResponse({ access_token: 'TKN', expires_in: 1800 });
+      }
+      return fakeResponse({ data: [{ price: { total: '99.00', currency: 'USD' } }] });
+    });
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+    await createAmadeusFlights({ clientId: 'a', clientSecret: 'b', currency: 'USD' }).quote(
+      'LHR',
+      'JFK',
+      '2026-09-01',
+    );
+    const offers = calls.find((c) => c.url.includes('flight-offers'))!;
+    expect(offers.url).toContain('originLocationCode=LHR');
+    expect(offers.url).toContain('destinationLocationCode=JFK');
+    expect(offers.url).toContain('currencyCode=USD');
+    expect((offers.init?.headers as Record<string, string>).Authorization).toBe('Bearer TKN');
+  });
+
+  it('caches the token across quotes (one auth call, then reuse)', async () => {
+    let tokenCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('oauth2/token')) {
+        tokenCalls++;
+        return fakeResponse({ access_token: 'tok', expires_in: 1800 });
+      }
+      return fakeResponse({ data: [{ price: { total: '120.00', currency: 'GBP' } }] });
+    });
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+    const flights = createAmadeusFlights({ clientId: 'a', clientSecret: 'b' });
+    await flights.quote('LHR', 'BCN', '2026-06-01');
+    await flights.quote('LHR', 'CDG', '2026-07-01');
+    expect(tokenCalls).toBe(1);
+  });
+
+  it('throws when the offers list is empty', async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes('oauth2/token')
+        ? fakeResponse({ access_token: 'tok', expires_in: 1800 })
+        : fakeResponse({ data: [] }),
+    );
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+    await expect(
+      createAmadeusFlights({ clientId: 'a', clientSecret: 'b' }).quote('LHR', 'BCN', '2026-06-01'),
+    ).rejects.toThrow(/no flight offers/i);
+  });
+
+  it('rejects a malformed offers response (untrusted input)', async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes('oauth2/token')
+        ? fakeResponse({ access_token: 'tok', expires_in: 1800 })
+        : fakeResponse({ data: [{ price: { total: 'not-a-number', currency: 'GBP' } }] }),
+    );
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+    await expect(
+      createAmadeusFlights({ clientId: 'a', clientSecret: 'b' }).quote('LHR', 'BCN', '2026-06-01'),
+    ).rejects.toThrow(/invalid price/i);
+  });
+
+  it('propagates an auth failure (bad credentials → HTTP error)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => fakeResponse({ error: 'invalid_client' }, false, 401)));
+    await expect(
+      createAmadeusFlights({ clientId: 'bad', clientSecret: 'bad' }).quote('LHR', 'BCN', '2026-06-01'),
+    ).rejects.toThrow(/HTTP 401/);
+  });
 });
