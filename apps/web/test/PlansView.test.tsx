@@ -25,6 +25,23 @@ describe('PlansView', () => {
     expect(headings.some((h) => labels.has(h))).toBe(true);
   });
 
+  it('keeps the score breakdown behind a per-card disclosure', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlansView />);
+
+    // Collapsed by default: the weighted breakdown rows are not rendered.
+    expect(screen.queryAllByText(/% · w\d/)).toHaveLength(0);
+
+    // Every card still advertises the reasoning as an expandable control.
+    const toggles = screen.getAllByRole('button', { name: /Why this scored well/ });
+    expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggles[0]);
+    expect(toggles[0]).toHaveAttribute('aria-expanded', 'true');
+    // Now this card's breakdown rows (e.g. "93% · w3") are visible.
+    expect(screen.getAllByText(/% · w\d/).length).toBeGreaterThan(0);
+  });
+
   it('lets the user select a different plan', async () => {
     const user = userEvent.setup();
     renderWithProviders(<PlansView />);

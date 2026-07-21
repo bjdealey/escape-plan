@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Check, Info, MapPin, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, Info, MapPin, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,6 +102,11 @@ function PlanCard({
     .filter((b) => b.weight > 0)
     .sort((a, b) => b.contribution - a.contribution);
 
+  // The score breakdown and trade-offs are reassurance for skeptics, not the
+  // decision itself — collapse them so the ranked list stays scannable
+  // (progressive disclosure) and each card leads with its four headline metrics.
+  const [showReasoning, setShowReasoning] = React.useState(false);
+
   return (
     <Card
       glass
@@ -134,8 +139,23 @@ function PlanCard({
         </div>
 
         <div>
-          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-            Why this scored well
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                setShowReasoning((v) => {
+                  if (!v) track('plan_reasoning_expanded', { planId: plan.id, rank });
+                  return !v;
+                })
+              }
+              aria-expanded={showReasoning}
+              className="flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showReasoning ? 'rotate-180' : ''}`}
+              />
+              Why this scored well
+            </button>
             <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -150,35 +170,40 @@ function PlanCard({
               </Tooltip>
             </TooltipProvider>
           </div>
-          <ul className="space-y-2">
-            {topCriteria.slice(0, 4).map((c) => (
-              <li key={c.criterion} className="grid grid-cols-[1fr_auto] items-center gap-3">
-                <div className="min-w-0">
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="truncate text-muted-foreground">{c.criterion}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {Math.round(c.score * 100)}% · w{c.weight}
-                    </span>
-                  </div>
-                  <Progress value={c.score * 100} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
 
-        {plan.tradeoffs.length > 0 ? (
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Trade-offs
-            </p>
-            <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
-              {plan.tradeoffs.map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+          {showReasoning ? (
+            <div className="mt-3 space-y-4">
+              <ul className="space-y-2">
+                {topCriteria.slice(0, 4).map((c) => (
+                  <li key={c.criterion} className="grid grid-cols-[1fr_auto] items-center gap-3">
+                    <div className="min-w-0">
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="truncate text-muted-foreground">{c.criterion}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {Math.round(c.score * 100)}% · w{c.weight}
+                        </span>
+                      </div>
+                      <Progress value={c.score * 100} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {plan.tradeoffs.length > 0 ? (
+                <div className="rounded-lg border border-border bg-muted/40 p-3">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Trade-offs
+                  </p>
+                  <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+                    {plan.tradeoffs.map((t) => (
+                      <li key={t}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
         <div className="flex flex-wrap gap-2">
           {plan.breaks.map((b) => (
