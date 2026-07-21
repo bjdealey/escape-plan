@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Settings2 } from 'lucide-react';
 import type { LinkTarget } from '@escape-plan/engine';
 import { Button } from '@/components/ui/button';
 import { useGroups } from '@/store/groups';
@@ -14,7 +14,14 @@ function timeAgo(iso: string): string {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
-export function NotificationCenter({ onNavigate }: { onNavigate: (t: LinkTarget) => void }) {
+export function NotificationCenter({
+  onNavigate,
+  onOpenSettings,
+}: {
+  onNavigate: (t: LinkTarget) => void;
+  /** Opens notification/alert preferences — the settings home for the bell. */
+  onOpenSettings?: () => void;
+}) {
   const { currentUser } = useGroups();
   const notifications = useNotifications();
   const [open, setOpen] = React.useState(false);
@@ -102,6 +109,22 @@ export function NotificationCenter({ onNavigate }: { onNavigate: (t: LinkTarget)
               ))
             )}
           </ul>
+          {onOpenSettings ? (
+            <div className="border-t border-border px-1 py-1">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onOpenSettings();
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:bg-secondary"
+              >
+                <Settings2 className="h-4 w-4 text-muted-foreground" aria-hidden />
+                Notification settings
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
