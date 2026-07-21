@@ -49,6 +49,27 @@ describe('App navigation', () => {
     expect(screen.queryByRole('dialog', { name: 'Escape Plan assistant' })).not.toBeInTheDocument();
   });
 
+  it('preserves the assistant conversation across close and reopen', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Ask the assistant' }));
+    const input = screen.getByLabelText('Ask a question about your plan');
+    await user.type(input, 'remember this{Enter}');
+
+    // The message is in the conversation log.
+    const dialog = screen.getByRole('dialog', { name: 'Escape Plan assistant' });
+    expect(within(dialog).getByText('remember this')).toBeInTheDocument();
+
+    // Close, then reopen — the panel stays mounted, so the log survives.
+    await user.click(within(dialog).getByRole('button', { name: 'Close assistant' }));
+    expect(screen.queryByRole('dialog', { name: 'Escape Plan assistant' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ask the assistant' }));
+    const reopened = screen.getByRole('dialog', { name: 'Escape Plan assistant' });
+    expect(within(reopened).getByText('remember this')).toBeInTheDocument();
+  });
+
   it('nests Dashboard, Calendar and Plans under the Plan tab', () => {
     renderWithProviders(<App />);
     const planViews = screen.getByRole('tablist', { name: 'Plan views' });
