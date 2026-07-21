@@ -45,6 +45,19 @@ describe('Dashboard', () => {
     expect(getRecordedEvents().some((e) => e.name === 'hero_view_plan_clicked')).toBe(true);
   });
 
+  it('trims the tile row to four and drops the vanity / hero-duplicated tiles', () => {
+    renderWithProviders(<Dashboard />);
+    // Kept: two outcomes + two resources. ("Leave efficiency" also titles a
+    // detail card below, so assert presence rather than uniqueness.)
+    for (const label of ['Remaining leave', 'Days off achieved', 'Leave efficiency', 'Budget remaining']) {
+      expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
+    }
+    // Dropped: vanity or now shown in the hero above.
+    for (const label of ['Warmest trip', 'Trips planned', 'Next escape', 'Longest break']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+  });
+
   it('renders the three chart cards', () => {
     renderWithProviders(<Dashboard />);
     expect(screen.getByText('Leave allocation')).toBeInTheDocument();

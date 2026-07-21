@@ -13,16 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  ArrowRight,
-  CalendarDays,
-  Gauge,
-  PiggyBank,
-  Plane,
-  Sun,
-  Timer,
-  TrendingUp,
-} from 'lucide-react';
+import { ArrowRight, CalendarDays, Gauge, PiggyBank, Sun } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +25,7 @@ import { useThemeColors } from '@/lib/useThemeColors';
 import { countdown, daysOffByMonth, monthlyBudget, todayISO } from '@/lib/metrics';
 import { SUGGESTED_QUESTIONS } from '@/lib/assistant';
 import { track } from '@/lib/analytics';
-import { formatCurrency, formatDateShort } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 
 // A couple of genuinely useful, engine-answerable prompts to surface as a nudge.
 const NUDGE_QUESTIONS = [
@@ -76,11 +67,6 @@ export function Dashboard({
     { name: 'Unused bookable', value: unused, color: colors.accent },
     { name: 'Emergency reserve', value: reserve, color: colors['muted-foreground'] },
   ].filter((d) => d.value > 0);
-
-  const warmest = plan.breaks
-    .map((b) => b.suggestion)
-    .filter((s): s is NonNullable<typeof s> => Boolean(s))
-    .sort((a, b) => b.weather.avgTempC - a.weather.avgTempC)[0];
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -124,6 +110,11 @@ export function Dashboard({
         </CardContent>
       </Card>
 
+      {/* Four at-a-glance tiles: the two headline outcomes plus the two
+          resources the user is spending down (leave, budget). Longest break,
+          next escape and trip count now live in the hero above, and the
+          warmest-trip / trip-count vanity tiles are dropped, keeping this row
+          within a scannable count (Miller's ~7±2) rather than eight equals. */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Remaining leave"
@@ -144,34 +135,10 @@ export function Dashboard({
           icon={<Gauge />}
         />
         <StatCard
-          label="Longest break"
-          value={`${plan.longestBreak} days`}
-          sub={`${plan.tripCount} trips planned`}
-          icon={<TrendingUp />}
-        />
-        <StatCard
           label="Budget remaining"
           value={formatCurrency(budgetRemaining, currency)}
           sub={`of ${formatCurrency(input.budget.holidayFund, currency)} fund`}
           icon={<PiggyBank />}
-        />
-        <StatCard
-          label="Next escape"
-          value={cd.days === null ? '—' : `${cd.days} days`}
-          sub={cd.next ? `${formatDateShort(cd.next.start)} · ${cd.next.totalDaysOff} days off` : 'No upcoming break'}
-          icon={<Timer />}
-        />
-        <StatCard
-          label="Trips planned"
-          value={plan.tripCount}
-          sub={`${plan.breaks.filter((b) => b.suggestion).length} with a destination`}
-          icon={<Plane />}
-        />
-        <StatCard
-          label="Warmest trip"
-          value={warmest ? `${Math.round(warmest.weather.avgTempC)}°C` : '—'}
-          sub={warmest ? `${warmest.destinationName} · ${warmest.weather.label}` : 'Staycations only'}
-          icon={<Sun />}
         />
       </div>
 
