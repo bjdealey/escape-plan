@@ -1,5 +1,17 @@
 import * as React from 'react';
-import { BarChart3, BellRing, Bot, CalendarDays, Compass, ListChecks, Moon, Sliders, Sun, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  BarChart3,
+  Bot,
+  CalendarDays,
+  CalendarRange,
+  Compass,
+  ListChecks,
+  Moon,
+  Settings,
+  Sun,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -26,6 +38,21 @@ import { track } from '@/lib/analytics';
 
 const TAB_KEY = 'escape-plan-tab';
 
+// The three planning surfaces that live under one "Plan" tab as inner views.
+const PLAN_VIEWS = ['dashboard', 'calendar', 'plans'] as const;
+// Settings-like sections, reached from the header (gear / bell) rather than a tab.
+const SETTINGS_VIEWS = ['preferences', 'alerts'] as const;
+type View =
+  | (typeof PLAN_VIEWS)[number]
+  | (typeof SETTINGS_VIEWS)[number]
+  | 'group'
+  | 'assistant';
+
+const isPlanView = (v: string): v is (typeof PLAN_VIEWS)[number] =>
+  (PLAN_VIEWS as readonly string[]).includes(v);
+const isSettingsView = (v: string): v is (typeof SETTINGS_VIEWS)[number] =>
+  (SETTINGS_VIEWS as readonly string[]).includes(v);
+
 // The "Viewing as" switcher stands in for real IdP login and is dev-only — the
 // x-user-id it maps to is ignored under a real auth provider / in production.
 // Hidden by default in production builds; a public demo can opt back in with
@@ -44,35 +71,49 @@ export default function App() {
   const { onboarded, result, selectedPlanId } = usePlanner();
   const groups = useGroups();
   const { theme, toggle } = useTheme();
-  const [tab, setTab] = React.useState<string>(() => {
+  const [view, setView] = React.useState<View>(() => {
     try {
-      return localStorage.getItem(TAB_KEY) ?? 'dashboard';
+      return (localStorage.getItem(TAB_KEY) as View) ?? 'dashboard';
     } catch {
       return 'dashboard';
     }
   });
+  // Remember the last plan sub-view so returning to the "Plan" tab reopens it.
+  const [lastPlanView, setLastPlanView] = React.useState<(typeof PLAN_VIEWS)[number]>(() =>
+    isPlanView(view) ? view : 'dashboard',
+  );
 
   const [assistantSeed, setAssistantSeed] = React.useState<string | null>(null);
 
-  // Persist the active tab so a return visit reopens where the user left off,
-  // and record tab views so section engagement can be measured.
-  const changeTab = React.useCallback((t: string) => {
-    setTab(t);
+  // Persist the active view so a return visit reopens where the user left off,
+  // and record views so section engagement can be measured. Deep-links from
+  // notifications, the hero and the assistant nudge all funnel through here.
+  const changeView = React.useCallback((v: string) => {
+    const next = v as View;
+    setView(next);
+    if (isPlanView(next)) setLastPlanView(next);
     try {
-      localStorage.setItem(TAB_KEY, t);
+      localStorage.setItem(TAB_KEY, next);
     } catch {
       /* ignore */
     }
-    track('tab_viewed', { tab: t });
+    track('tab_viewed', { tab: next });
   }, []);
+
+  // Top-level tabs collapse the three planning surfaces into one "Plan" tab.
+  const topTab = isPlanView(view) || isSettingsView(view) ? 'plan' : view;
+  const onTopTabChange = React.useCallback(
+    (t: string) => changeView(t === 'plan' ? lastPlanView : t),
+    [changeView, lastPlanView],
+  );
 
   // A dashboard nudge stages a question, then opens the Assistant to ask it.
   const askAssistant = React.useCallback(
     (q: string) => {
       setAssistantSeed(q);
-      changeTab('assistant');
+      changeView('assistant');
     },
-    [changeTab],
+    [changeView],
   );
 
   if (!onboarded) return <Onboarding />;
@@ -119,7 +160,18 @@ export default function App() {
                 </Select>
               </div>
             ) : null}
-            <NotificationCenter onNavigate={(t) => changeTab(t)} />
+            <NotificationCenter
+              onNavigate={(t) => changeView(t)}
+              onOpenSettings={() => changeView('alerts')}
+            />
+            <Button
+              variant={view === 'preferences' ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => changeView('preferences')}
+              aria-label="Preferences"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -142,59 +194,81 @@ export default function App() {
           </p>
         </div>
 
-        <Tabs value={tab} onValueChange={changeTab}>
-          <TabsList
-            className="flex w-full flex-wrap justify-start gap-1"
-            aria-label="Planner sections"
-          >
-            <TabsTrigger value="dashboard">
-              <BarChart3 className="h-4 w-4" /> Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="calendar">
-              <CalendarDays className="h-4 w-4" /> Calendar
-            </TabsTrigger>
-            <TabsTrigger value="plans">
-              <ListChecks className="h-4 w-4" /> Plans
-            </TabsTrigger>
-            <TabsTrigger value="assistant">
-              <Bot className="h-4 w-4" /> Assistant
-            </TabsTrigger>
-            <TabsTrigger value="group">
-              <Users className="h-4 w-4" /> Group
-            </TabsTrigger>
-            <TabsTrigger value="alerts">
-              <BellRing className="h-4 w-4" /> Alerts
-            </TabsTrigger>
-            <TabsTrigger value="preferences">
-              <Sliders className="h-4 w-4" /> Preferences
-            </TabsTrigger>
-          </TabsList>
+        {isSettingsView(view) ? (
+          <div className="animate-fade-in">
+            <div className="mb-4 flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => changeView(lastPlanView)}
+                className="gap-1.5"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to plan
+              </Button>
+              <span className="text-sm font-semibold">
+                {view === 'preferences' ? 'Preferences' : 'Notification settings'}
+              </span>
+            </div>
+            {view === 'preferences' ? <PreferencesPanel /> : <NotificationPreferences />}
+          </div>
+        ) : (
+          <Tabs value={topTab} onValueChange={onTopTabChange}>
+            <TabsList
+              className="flex w-full flex-wrap justify-start gap-1"
+              aria-label="Planner sections"
+            >
+              <TabsTrigger value="plan">
+                <CalendarRange className="h-4 w-4" /> Plan
+              </TabsTrigger>
+              <TabsTrigger value="group">
+                <Users className="h-4 w-4" /> Group
+              </TabsTrigger>
+              <TabsTrigger value="assistant">
+                <Bot className="h-4 w-4" /> Assistant
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="dashboard">
-            <Dashboard onAsk={askAssistant} onNavigate={changeTab} />
-          </TabsContent>
-          <TabsContent value="calendar">
-            <CalendarView />
-          </TabsContent>
-          <TabsContent value="plans">
-            <PlansView onNavigate={changeTab} />
-          </TabsContent>
-          <TabsContent value="assistant">
-            <AiPlanner
-              seedQuestion={assistantSeed}
-              onSeedConsumed={() => setAssistantSeed(null)}
-            />
-          </TabsContent>
-          <TabsContent value="group">
-            <GroupView />
-          </TabsContent>
-          <TabsContent value="alerts">
-            <NotificationPreferences />
-          </TabsContent>
-          <TabsContent value="preferences">
-            <PreferencesPanel />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="plan">
+              {/* Dashboard, Calendar and Plans are three views of one plan, so
+                  they nest here as a sub-switcher instead of three top tabs. */}
+              <Tabs
+                value={isPlanView(view) ? view : 'dashboard'}
+                onValueChange={changeView}
+              >
+                <TabsList aria-label="Plan views">
+                  <TabsTrigger value="dashboard">
+                    <BarChart3 className="h-4 w-4" /> Dashboard
+                  </TabsTrigger>
+                  <TabsTrigger value="calendar">
+                    <CalendarDays className="h-4 w-4" /> Calendar
+                  </TabsTrigger>
+                  <TabsTrigger value="plans">
+                    <ListChecks className="h-4 w-4" /> Plans
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="dashboard">
+                  <Dashboard onAsk={askAssistant} onNavigate={changeView} />
+                </TabsContent>
+                <TabsContent value="calendar">
+                  <CalendarView />
+                </TabsContent>
+                <TabsContent value="plans">
+                  <PlansView onNavigate={changeView} />
+                </TabsContent>
+              </Tabs>
+            </TabsContent>
+
+            <TabsContent value="group">
+              <GroupView />
+            </TabsContent>
+            <TabsContent value="assistant">
+              <AiPlanner
+                seedQuestion={assistantSeed}
+                onSeedConsumed={() => setAssistantSeed(null)}
+              />
+            </TabsContent>
+          </Tabs>
+        )}
 
         <footer className="mt-10 border-t border-border pt-6 text-xs text-muted-foreground">
           <p>
