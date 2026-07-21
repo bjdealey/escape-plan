@@ -30,40 +30,46 @@ export function AssistantWidget({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onOpenChange]);
 
-  if (open) {
-    return (
-      <>
+  return (
+    <>
+      {open ? (
         <div
           className="fixed inset-0 z-40 bg-foreground/10 animate-fade-in"
           onClick={() => onOpenChange(false)}
           aria-hidden
         />
-        <div
-          role="dialog"
-          aria-label="Escape Plan assistant"
-          className="fixed bottom-4 right-4 z-50 w-[min(28rem,calc(100vw-2rem))] animate-scale-in"
-        >
-          <AiPlanner
-            seedQuestion={seed}
-            onSeedConsumed={onSeedConsumed}
-            onClose={() => onOpenChange(false)}
-          />
-        </div>
-      </>
-    );
-  }
+      ) : null}
 
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        onOpenChange(true);
-        track('assistant_opened', { via: 'fab' });
-      }}
-      aria-label="Ask the assistant"
-      className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    >
-      <Bot className="h-6 w-6" />
-    </button>
+      {/* The panel stays mounted and is only hidden when closed, so the
+          conversation persists across open/close within a session. `hidden`
+          removes it from layout and the accessibility tree while preserving
+          AiPlanner's message state. */}
+      <div
+        role="dialog"
+        aria-label="Escape Plan assistant"
+        hidden={!open}
+        className="fixed bottom-4 right-4 z-50 w-[min(28rem,calc(100vw-2rem))]"
+      >
+        <AiPlanner
+          seedQuestion={seed}
+          onSeedConsumed={onSeedConsumed}
+          onClose={() => onOpenChange(false)}
+        />
+      </div>
+
+      {open ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onOpenChange(true);
+            track('assistant_opened', { via: 'fab' });
+          }}
+          aria-label="Ask the assistant"
+          className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <Bot className="h-6 w-6" />
+        </button>
+      )}
+    </>
   );
 }
