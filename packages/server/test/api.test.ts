@@ -1,6 +1,22 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
+
+// These are offline API tests: they must exercise the no-database (fixtures)
+// path deterministically. In the DB-integration CI job a Postgres service is
+// reachable on the default DATABASE_URL, which would otherwise flip
+// /api/bootstrap to source: 'database' and make this suite environment-
+// dependent. Stub the db module so the app never sees a database here; the
+// database-backed path has its own coverage in db.test.ts. (vi.mock is hoisted
+// above the imports, so createApp() picks up the stub.)
+vi.mock('../src/db.js', () => ({
+  DATABASE_URL: 'postgres://mock',
+  getPool: () => {
+    throw new Error('database not available in offline API tests');
+  },
+  isDbAvailable: async () => false,
+  closePool: async () => {},
+}));
 
 const app = createApp();
 
