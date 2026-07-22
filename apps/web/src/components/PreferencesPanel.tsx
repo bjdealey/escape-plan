@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { CalendarHeart, ChevronDown, Plus, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
+import { Building2, CalendarHeart, ChevronDown, Plus, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ import {
   type OccasionKind,
   type PersonalDate,
   type Season,
+  type Shutdown,
   type TripType,
   type Weights,
 } from '@escape-plan/engine';
@@ -94,6 +95,24 @@ export function PreferencesPanel() {
       { date: `${input.year}-06-15`, label: 'New occasion', kind: 'event', bookAround: true, daysAround: 3 },
     ]);
   const removeOccasion = (i: number) => setOccasions(occasions.filter((_, idx) => idx !== i));
+
+  // Company shutdowns — closures the employer imposes. Each either comes out of
+  // the annual allowance ('deducted') or is a free paid closure ('paid').
+  const shutdowns = leave.shutdowns;
+  const setShutdowns = (next: Shutdown[]) => updateLeave({ shutdowns: next });
+  const updateShutdown = (i: number, patch: Partial<Shutdown>) =>
+    setShutdowns(shutdowns.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const addShutdown = () =>
+    setShutdowns([
+      ...shutdowns,
+      {
+        start: `${input.year}-12-24`,
+        end: `${input.year}-12-31`,
+        label: 'Company shutdown',
+        policy: 'deducted',
+      },
+    ]);
+  const removeShutdown = (i: number) => setShutdowns(shutdowns.filter((_, idx) => idx !== i));
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 animate-fade-in">
@@ -462,6 +481,97 @@ export function PreferencesPanel() {
               })}
             </div>
           </fieldset>
+        </CardContent>
+      </Card>
+
+      <Card glass className="lg:col-span-2">
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4 text-primary" /> Company shutdowns
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Periods your employer closes. Mark whether each one comes out of your allowance or
+              is a free paid closure — only deducted days reduce your bookable leave.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addShutdown}
+            className="gap-1.5"
+            aria-label="Add shutdown period"
+          >
+            <Plus className="h-4 w-4" /> Add
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {shutdowns.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No shutdowns — your company doesn’t impose any closures on you.
+            </p>
+          ) : (
+            shutdowns.map((s, i) => {
+              const deducted = s.policy !== 'paid';
+              return (
+                <div
+                  key={i}
+                  className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
+                >
+                  <div className="min-w-[9rem] flex-1">
+                    <Label htmlFor={`sd-label-${i}`} className="mb-1 block text-xs">
+                      Name
+                    </Label>
+                    <Input
+                      id={`sd-label-${i}`}
+                      value={s.label ?? ''}
+                      onChange={(e) => updateShutdown(i, { label: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`sd-start-${i}`} className="mb-1 block text-xs">
+                      From
+                    </Label>
+                    <Input
+                      id={`sd-start-${i}`}
+                      type="date"
+                      value={s.start}
+                      onChange={(e) => updateShutdown(i, { start: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`sd-end-${i}`} className="mb-1 block text-xs">
+                      To
+                    </Label>
+                    <Input
+                      id={`sd-end-${i}`}
+                      type="date"
+                      value={s.end}
+                      onChange={(e) => updateShutdown(i, { end: e.target.value })}
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 pb-2 text-sm">
+                    <Switch
+                      checked={deducted}
+                      onCheckedChange={(v) =>
+                        updateShutdown(i, { policy: v ? 'deducted' : 'paid' })
+                      }
+                      aria-label={`${s.label ?? 'Shutdown'} comes out of my allowance`}
+                    />
+                    {deducted ? 'Uses my leave' : 'Paid closure (free)'}
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeShutdown(i)}
+                    aria-label={`Remove ${s.label ?? 'shutdown'}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })
+          )}
         </CardContent>
       </Card>
 

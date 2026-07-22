@@ -64,6 +64,19 @@ export interface PersonalDate {
 /** The reason a break exists — a trip, a staycation, or a non-travel commitment. */
 export type BreakPurpose = 'getaway' | 'staycation' | 'event' | 'family' | 'admin' | 'rest';
 
+/**
+ * How a company shutdown interacts with the annual allowance:
+ * - `deducted`: the closure comes out of your leave (common UK arrangement).
+ * - `paid`: a paid closure that does NOT touch your allowance (free days off).
+ * Omitted ⇒ `deducted`, preserving the original behaviour.
+ */
+export type ShutdownPolicy = 'deducted' | 'paid';
+
+/** A company shutdown period, with its allowance policy. */
+export interface Shutdown extends DateRangeSpec {
+  policy?: ShutdownPolicy;
+}
+
 export interface LeaveConfig {
   /** Total statutory allowance in days. */
   allowance: number;
@@ -77,8 +90,12 @@ export interface LeaveConfig {
   purchasedDays: number;
   /** Days sold back. */
   soldDays: number;
-  /** Company shutdown periods where leave is auto-deducted. */
-  shutdowns: DateRangeSpec[];
+  /**
+   * Company shutdown periods. Each may opt out of the allowance deduction via
+   * its `policy` (see {@link Shutdown}); a plain `deducted` shutdown consumes
+   * leave for every working day it covers.
+   */
+  shutdowns: Shutdown[];
   /** Dates the user must take as leave. */
   mandatoryDates: ISODate[];
   /** Whether half-days are permitted. */
@@ -269,7 +286,9 @@ export interface Plan {
 export interface EngineResult {
   input: EngineInput;
   availableLeave: number;
-  bookableLeave: number; // available minus reserve
+  bookableLeave: number; // available minus reserve and shutdown auto-deduction
+  /** Working days auto-consumed by company shutdowns (already out of bookableLeave). */
+  shutdownLeave: number;
   plans: Plan[];
   generatedAt: string;
 }

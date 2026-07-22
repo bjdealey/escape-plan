@@ -3,7 +3,7 @@ import type { CandidateBreak, DayInfo } from './calendar.js';
 import { suggestDestination, weatherSummaryFromClimate } from './destinations.js';
 import { ISODate, addDays, dateRange, daysBetween, monthOf, seasonOf } from './dateutil.js';
 import { purposeForKind } from './occasions.js';
-import { availableLeaveDays, bookableLeaveDays } from './leave.js';
+import { availableLeaveDays, bookableLeaveDays, shutdownLeaveDays } from './leave.js';
 import { explainPlan, scorePlan, summariseBreaks } from './scoring.js';
 import { colleaguesOffOn } from './groups.js';
 import type { Break, EngineInput, EngineResult, Plan, Weights } from './types.js';
@@ -386,7 +386,8 @@ function assemblePlan(strategy: StrategyDef, breaks: Break[], input: EngineInput
 export function optimise(input: EngineInput): EngineResult {
   const calendar = buildCalendar(input);
   const availableLeave = availableLeaveDays(input.leave);
-  const bookableLeave = bookableLeaveDays(input.leave);
+  const shutdownLeave = shutdownLeaveDays(input);
+  const bookableLeave = bookableLeaveDays(input.leave, shutdownLeave);
   const candidates = generateCandidates(calendar, input);
   const forced = forcedBreaks(calendar, input);
   // Anchored breaks (birthdays, weddings, moving day…) join the forced base so
@@ -440,6 +441,7 @@ export function optimise(input: EngineInput): EngineResult {
     input,
     availableLeave,
     bookableLeave,
+    shutdownLeave,
     plans: ranked,
     generatedAt: new Date(0).toISOString(), // deterministic; overridden by callers if needed
   };
