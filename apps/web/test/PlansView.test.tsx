@@ -46,18 +46,22 @@ describe('PlansView', () => {
     const user = userEvent.setup();
     renderWithProviders(<PlansView />);
 
-    // Plan 1 is selected by default.
-    expect(screen.getByRole('heading', { name: plans[0].strategyLabel }).closest('div')).toBeTruthy();
+    // Exactly one plan is selected by default. We derive the target plan from
+    // the rendered DOM rather than a separately-optimised ordering: the provider
+    // re-homes to the ambient locale and stamps the current date, both of which
+    // change which plans are generated and their ranking.
+    expect(screen.getAllByRole('button', { name: /Selected — shown/i })).toHaveLength(1);
 
-    // Select rank-2 plan via its card's action button.
-    const secondHeading = screen.getByRole('heading', { name: plans[1].strategyLabel });
-    const secondCard = secondHeading.closest('[class*="rounded-lg"]') as HTMLElement;
-    const useBtn = within(secondCard).getByRole('button', { name: /use this plan/i });
-    await user.click(useBtn);
+    // Pick any currently-unselected plan card straight from the list.
+    const useButtons = screen.getAllByRole('button', { name: /use this plan/i });
+    expect(useButtons.length).toBeGreaterThan(0);
+    const targetCard = useButtons[0].closest('[class*="rounded-lg"]') as HTMLElement;
 
-    // The rank-2 card is now the selected one (button reflects the selection).
+    await user.click(within(targetCard).getByRole('button', { name: /use this plan/i }));
+
+    // That card is now the selected one (button reflects the selection).
     expect(
-      within(secondCard).getByRole('button', { name: /Selected — shown/i }),
+      within(targetCard).getByRole('button', { name: /Selected — shown/i }),
     ).toBeInTheDocument();
   });
 });
