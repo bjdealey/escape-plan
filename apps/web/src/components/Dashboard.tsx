@@ -65,6 +65,7 @@ export function Dashboard({
   const leaveData = [
     { name: 'Leave spent', value: used, color: colors.primary },
     { name: 'Unused bookable', value: unused, color: colors.accent },
+    { name: 'Company shutdown', value: result.shutdownLeave, color: colors['muted-foreground'] },
     { name: 'Emergency reserve', value: reserve, color: colors['muted-foreground'] },
   ].filter((d) => d.value > 0);
 
@@ -119,7 +120,9 @@ export function Dashboard({
         <StatCard
           label="Remaining leave"
           value={`${result.bookableLeave - used} days`}
-          sub={`${result.availableLeave} available · ${reserve} reserved`}
+          sub={`${result.availableLeave} available · ${reserve} reserved${
+            result.shutdownLeave > 0 ? ` · ${result.shutdownLeave} shutdown` : ''
+          }`}
           icon={<CalendarDays />}
         />
         <StatCard

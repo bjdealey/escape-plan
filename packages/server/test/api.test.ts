@@ -55,7 +55,7 @@ describe('POST /api/optimise', () => {
     expect(res.body.plans[0]).toHaveProperty('explanation');
   });
 
-  it('honours a supplied reserve so no plan spends reserved days', async () => {
+  it('honours the reserve and shutdown auto-deduction so no plan overspends', async () => {
     const base = (await request(app).get('/api/bootstrap')).body.input;
     const input = {
       ...base,
@@ -63,9 +63,11 @@ describe('POST /api/optimise', () => {
     };
     const res = await request(app).post('/api/optimise').send(input);
     expect(res.status).toBe(200);
-    expect(res.body.bookableLeave).toBe(6);
+    // 10 remaining − 4 reserve − 4 shutdown working days (default Christmas close-down) = 2.
+    expect(res.body.shutdownLeave).toBe(4);
+    expect(res.body.bookableLeave).toBe(2);
     for (const plan of res.body.plans) {
-      expect(plan.totalLeaveUsed).toBeLessThanOrEqual(6);
+      expect(plan.totalLeaveUsed).toBeLessThanOrEqual(res.body.bookableLeave);
     }
   });
 });
