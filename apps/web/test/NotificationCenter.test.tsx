@@ -41,4 +41,25 @@ describe('NotificationPreferences', () => {
     renderWithProviders(<NotificationPreferences />);
     expect(screen.getByRole('button', { name: /Enable browser push|Push enabled|Not supported|Blocked/i })).toBeInTheDocument();
   });
+
+  it('toggling the unread badge preference hides the bell badge', async () => {
+    const user = userEvent.setup();
+    // Both the preferences toggle and the bell share the same provider.
+    renderWithProviders(
+      <>
+        <NotificationCenter onNavigate={vi.fn()} />
+        <NotificationPreferences />
+      </>,
+    );
+
+    // Demo user (1) has a seeded unread item, so the badge shows by default.
+    expect(screen.getByText('1')).toBeInTheDocument();
+
+    const badgeToggle = screen.getByRole('switch', { name: /Show unread badge count/i });
+    expect(badgeToggle).toBeChecked();
+    await user.click(badgeToggle);
+
+    expect(screen.getByRole('switch', { name: /Show unread badge count/i })).not.toBeChecked();
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
+  });
 });
