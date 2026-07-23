@@ -27,6 +27,7 @@ export function NotificationCenter({
   const [open, setOpen] = React.useState(false);
   const items = notifications.forUser(currentUser.id);
   const unread = notifications.unreadCount(currentUser.id);
+  const showBadge = notifications.badgeCountEnabled && unread > 0;
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -49,7 +50,7 @@ export function NotificationCenter({
         aria-haspopup="menu"
       >
         <Bell className="h-4 w-4" />
-        {unread > 0 ? (
+        {showBadge ? (
           <span
             aria-hidden
             className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground"

@@ -39,6 +39,9 @@ export interface NotificationsContextValue {
   prefFor: (userId: number) => NotificationPreference;
   setPref: (pref: NotificationPreference) => void;
   isEnabled: (userId: number, type: NotificationType, channel: Channel) => boolean;
+  /** Whether the unread count badge is shown on the bell. */
+  badgeCountEnabled: boolean;
+  setBadgeCountEnabled: (enabled: boolean) => void;
   pushPermission: 'default' | 'granted' | 'denied' | 'unsupported';
   requestPush: () => Promise<void>;
 }
@@ -65,6 +68,7 @@ const nextId = () => `ntf-${Date.now()}-${counter++}`;
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<NotificationItem[]>(seedFeed);
   const [prefs, setPrefs] = React.useState<Map<number, NotificationPreference>>(new Map());
+  const [badgeCountEnabled, setBadgeCountEnabled] = React.useState(true);
   const [pushPermission, setPushPermission] = React.useState<NotificationsContextValue['pushPermission']>(
     typeof Notification === 'undefined' ? 'unsupported' : (Notification.permission as 'default' | 'granted' | 'denied'),
   );
@@ -106,6 +110,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       prefFor,
       setPref: (pref) => setPrefs((prev) => new Map(prev).set(pref.userId, pref)),
       isEnabled: (userId, type, channel) => isChannelEnabled(prefs.get(userId), type, channel),
+      badgeCountEnabled,
+      setBadgeCountEnabled,
       pushPermission,
       requestPush: async () => {
         if (typeof Notification === 'undefined') return;
@@ -113,7 +119,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         setPushPermission(result as 'default' | 'granted' | 'denied');
       },
     };
-  }, [items, prefs, pushPermission]);
+  }, [items, prefs, badgeCountEnabled, pushPermission]);
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }

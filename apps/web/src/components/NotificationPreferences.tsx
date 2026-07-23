@@ -49,14 +49,24 @@ export function NotificationPreferences() {
               Choose how you hear about each event. In-app is always available; email and push are optional.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <span>Mute all</span>
-            <Switch
-              checked={pref.muted}
-              onCheckedChange={(v) => update((p) => (p.muted = v))}
-              aria-label="Mute all notifications"
-            />
-          </label>
+          <div className="flex flex-col items-end gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <span>Mute all</span>
+              <Switch
+                checked={pref.muted}
+                onCheckedChange={(v) => update((p) => (p.muted = v))}
+                aria-label="Mute all notifications"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <span>Show unread badge</span>
+              <Switch
+                checked={notifications.badgeCountEnabled}
+                onCheckedChange={(v) => notifications.setBadgeCountEnabled(v)}
+                aria-label="Show unread badge count"
+              />
+            </label>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 gap-y-2 text-sm">
